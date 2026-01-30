@@ -1,0 +1,9 @@
+target/
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+transaction-service/target/
+fraud-detection-service/target/
+alert-service/target/
