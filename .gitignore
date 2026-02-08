@@ -3,6 +3,9 @@ target/
 .vscode/
 *.iml
 .DS_Store
+.classpath
+.project
+.settings/
 
 transaction-service/target/
 fraud-detection-service/target/
