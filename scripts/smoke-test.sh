@@ -4,6 +4,7 @@ set -euo pipefail
 
 TRANSACTION_API_BASE="${TRANSACTION_API_BASE:-http://localhost:8080}"
 ALERT_API_BASE="${ALERT_API_BASE:-http://localhost:8082}"
+PROCESSING_WAIT_SECONDS="${PROCESSING_WAIT_SECONDS:-4}"
 
 USER_ID="smoke-user-$(date +%s)"
 
@@ -16,7 +17,7 @@ CREATE_RESPONSE=$(curl -fsS -X POST "${TRANSACTION_API_BASE}/api/v1/transactions
 echo "Transaction created: ${CREATE_RESPONSE}"
 
 echo "[2/3] Waiting for asynchronous processing"
-sleep 4
+sleep "${PROCESSING_WAIT_SECONDS}"
 
 echo "[3/3] Fetching alerts for ${USER_ID}"
 ALERTS_RESPONSE=$(curl -fsS "${ALERT_API_BASE}/api/v1/alerts/users/${USER_ID}")
