@@ -44,6 +44,7 @@ services:
 
   transaction-db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: transactions
       POSTGRES_USER: postgres
@@ -58,6 +59,7 @@ services:
 
   fraud-db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: fraud
       POSTGRES_USER: postgres
@@ -72,6 +74,7 @@ services:
 
   alert-db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: alerts
       POSTGRES_USER: postgres
@@ -87,6 +90,7 @@ services:
   transaction-service:
     build:
       context: ./transaction-service
+    restart: unless-stopped
     depends_on:
       kafka:
         condition: service_healthy
@@ -104,6 +108,7 @@ services:
   fraud-detection-service:
     build:
       context: ./fraud-detection-service
+    restart: unless-stopped
     depends_on:
       kafka:
         condition: service_healthy
@@ -121,6 +126,7 @@ services:
   alert-service:
     build:
       context: ./alert-service
+    restart: unless-stopped
     depends_on:
       kafka:
         condition: service_healthy
