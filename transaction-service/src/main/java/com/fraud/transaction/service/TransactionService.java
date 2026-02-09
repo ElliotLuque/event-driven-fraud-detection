@@ -31,14 +31,16 @@ public class TransactionService {
     public TransactionResponse createTransaction(TransactionRequest request) {
         String transactionId = UUID.randomUUID().toString();
         Instant now = Instant.now();
+        String normalizedCurrency = request.currency().trim().toUpperCase(Locale.ROOT);
+        String normalizedCountry = request.country().trim().toUpperCase(Locale.ROOT);
 
         Transaction transaction = new Transaction(
                 transactionId,
                 request.userId(),
                 request.amount(),
-                request.currency().toUpperCase(Locale.ROOT),
+                normalizedCurrency,
                 request.merchantId(),
-                request.country().toUpperCase(Locale.ROOT),
+                normalizedCountry,
                 request.paymentMethod(),
                 now
         );
