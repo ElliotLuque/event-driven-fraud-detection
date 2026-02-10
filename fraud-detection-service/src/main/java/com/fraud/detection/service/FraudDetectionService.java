@@ -64,7 +64,7 @@ public class FraudDetectionService {
         FraudEvaluation evaluation = fraudRulesEngine.evaluate(event, lastTransaction, recentTransactionsCount, occurredAt);
 
         historyRepository.save(UserTransactionHistory.fromEvent(event, occurredAt));
-        processedEventRepository.save(new ProcessedEvent(event.eventId(), Instant.now()));
+        processedEventRepository.save(new ProcessedEvent(event.eventId(), occurredAt));
 
         if (!evaluation.fraudulent()) {
             return;
