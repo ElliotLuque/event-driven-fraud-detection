@@ -8,6 +8,8 @@ import java.util.Optional;
 
 public interface AlertRepository extends JpaRepository<Alert, String> {
 
+    List<Alert> findAllByOrderByCreatedAtDesc();
+
     List<Alert> findByUserIdOrderByCreatedAtDesc(String userId);
 
     Optional<Alert> findByTransactionId(String transactionId);

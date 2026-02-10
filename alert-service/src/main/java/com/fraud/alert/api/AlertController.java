@@ -22,7 +22,7 @@ public class AlertController {
 
     @GetMapping
     public List<AlertResponse> listAlerts() {
-        return alertRepository.findAll().stream().map(mapper::toResponse).toList();
+        return alertRepository.findAllByOrderByCreatedAtDesc().stream().map(mapper::toResponse).toList();
     }
 
     @GetMapping("/users/{userId}")
