@@ -12,7 +12,7 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic transactionsCreatedTopic(@Value("${app.kafka.topics.transactions-created}") String topic) {
         return TopicBuilder.name(topic)
-                .partitions(3)
+                .partitions(6)
                 .replicas(1)
                 .build();
     }

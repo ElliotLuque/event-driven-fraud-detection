@@ -12,7 +12,7 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic transactionsCreatedTopic(@Value("${app.kafka.topics.transactions-created}") String topic) {
         return TopicBuilder.name(topic)
-                .partitions(3)
+                .partitions(6)
                 .replicas(1)
                 .build();
     }
@@ -20,7 +20,7 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic fraudDetectedTopic(@Value("${app.kafka.topics.fraud-detected}") String topic) {
         return TopicBuilder.name(topic)
-                .partitions(3)
+                .partitions(6)
                 .replicas(1)
                 .build();
     }
@@ -28,7 +28,7 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic transactionsCreatedDlqTopic(@Value("${app.kafka.topics.transactions-created}") String topic) {
         return TopicBuilder.name(topic + ".dlq")
-                .partitions(3)
+                .partitions(6)
                 .replicas(1)
                 .build();
     }
