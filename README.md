@@ -91,6 +91,13 @@ Servicios disponibles:
 - Alert Service: `http://localhost:8082`
 - Kafka UI: `http://localhost:8089`
 
+Variables utiles para pruebas locales:
+
+- `SPRING_KAFKA_BOOTSTRAP_SERVERS`
+- `SPRING_DATASOURCE_URL`
+- `SPRING_DATASOURCE_USERNAME`
+- `SPRING_DATASOURCE_PASSWORD`
+
 Para ver logs:
 
 ```bash
