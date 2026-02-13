@@ -12,11 +12,12 @@ public class NotificationGateway {
 
     public void notifyFraud(Alert alert) {
         log.warn(
-                "Sending FRAUD alert -> userId={}, transactionId={}, riskScore={}, reasons={}",
+                "Sending FRAUD alert -> userId={}, transactionId={}, riskScore={}, reasons={}, createdAt={}",
                 alert.getUserId(),
                 alert.getTransactionId(),
                 alert.getRiskScore(),
-                alert.getReasons()
+                alert.getReasons(),
+                alert.getCreatedAt()
         );
     }
 }
