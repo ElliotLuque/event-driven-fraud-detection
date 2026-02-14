@@ -58,3 +58,4 @@ app:
       high-risk-merchants:
         - MRC-999
         - MRC-666
+        - MRC-404
