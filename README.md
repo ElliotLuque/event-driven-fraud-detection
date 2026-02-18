@@ -172,3 +172,9 @@ docker run --rm -v "$PWD/transaction-service:/app" -w /app maven:3.9.9-eclipse-t
 docker run --rm -v "$PWD/fraud-detection-service:/app" -w /app maven:3.9.9-eclipse-temurin-21 mvn -B test
 docker run --rm -v "$PWD/alert-service:/app" -w /app maven:3.9.9-eclipse-temurin-21 mvn -B test
 ```
+
+## Troubleshooting rapido
+
+- Si Kafka tarda en responder, valida que `kafka` este en estado healthy en Docker Compose.
+- Si los tests de integracion fallan localmente, confirma que Docker tenga memoria suficiente.
+- Si no ves alertas, espera unos segundos y revisa logs de `fraud-detection-service` y `alert-service`.
