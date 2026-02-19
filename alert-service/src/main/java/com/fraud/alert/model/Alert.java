@@ -72,7 +72,8 @@ public class Alert {
     private static String joinReasons(FraudDetectedEvent event) {
         StringJoiner joiner = new StringJoiner(",");
         event.reasons().forEach(joiner::add);
-        return joiner.toString();
+        String reasons = joiner.toString();
+        return reasons.isBlank() ? "UNSPECIFIED_RULE" : reasons;
     }
 
     public String getId() {
