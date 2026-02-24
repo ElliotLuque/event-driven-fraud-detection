@@ -77,6 +77,28 @@ Cada consumidor incluye:
 - Spring Kafka
 - PostgreSQL
 - Docker Compose
+- Prometheus
+- Loki
+- Grafana
+
+## IntelliJ IDEA
+
+Este repositorio ya esta preparado para IntelliJ con:
+
+- Proyecto Maven multi-modulo (importa el `pom.xml` raiz).
+- Configuraciones compartidas en `.run/` para levantar cada microservicio desde el IDE.
+
+Pasos recomendados:
+
+1. Abre IntelliJ y selecciona `Open` sobre la carpeta del proyecto.
+2. Cuando IntelliJ detecte Maven, importa el proyecto desde el `pom.xml` raiz.
+3. Configura JDK 21 en `File > Project Structure`.
+4. Abre `Run/Debug Configurations` y ejecuta una de estas configuraciones:
+   - `transaction-service`
+   - `fraud-detection-service`
+   - `alert-service`
+
+Nota: para ejecutar los tres servicios en paralelo desde IntelliJ, inicia las tres configuraciones una por una (o crea un Compound Run Configuration en el IDE).
 
 ## Ejecutar localmente con Docker
 
@@ -90,6 +112,9 @@ Servicios disponibles:
 - Fraud Detection Service: `http://localhost:8081`
 - Alert Service: `http://localhost:8082`
 - Kafka UI: `http://localhost:8089`
+- Prometheus: `http://localhost:9090`
+- Loki API: `http://localhost:3100`
+- Grafana: `http://localhost:3000` (usuario `admin`, password `admin`)
 
 Variables utiles para pruebas locales:
 
@@ -103,6 +128,84 @@ Para ver logs:
 ```bash
 docker compose logs -f transaction-service fraud-detection-service alert-service
 ```
+
+## Observabilidad
+
+El proyecto incluye un stack de observabilidad listo para usar con Docker Compose:
+
+- `Prometheus` para metricas de los microservicios (`/actuator/prometheus`).
+- `Loki` para almacenamiento de logs.
+- `Promtail` para recoleccion de logs de contenedores Docker.
+- `Grafana` con datasources de Prometheus y Loki preconfigurados.
+- Dashboard provisionado automaticamente: `Fraud Detection Observability`.
+- Dashboard de alertas en vivo: `Fraud Alerting Live`.
+
+Endpoints de metricas expuestos por servicio:
+
+- `http://localhost:8080/actuator/prometheus`
+- `http://localhost:8081/actuator/prometheus`
+- `http://localhost:8082/actuator/prometheus`
+
+Metricas de fraude disponibles:
+
+- `fraud_alerts_total`: total de alertas de fraude creadas.
+- `fraud_alert_risk_score_*`: distribucion de score de riesgo.
+
+Regla de alerta Prometheus incluida:
+
+- `FraudAlertDetected`: se activa cuando `increase(fraud_alerts_total[1m]) > 0`.
+
+Consultas rapidas:
+
+- Tasa de requests por servicio en Prometheus:
+
+```promql
+sum(rate(http_server_requests_seconds_count[1m])) by (application)
+```
+
+- Uso de heap JVM por servicio:
+
+```promql
+sum(jvm_memory_used_bytes{area="heap"}) by (application)
+```
+
+### Verlo en accion en Grafana
+
+1. Levanta todo el stack:
+
+```bash
+docker compose up -d --build
+```
+
+2. Genera trafico y eventos de fraude:
+
+```bash
+bash scripts/generate-traffic.sh
+```
+
+Tambien puedes ejecutar el smoke test puntual:
+
+```bash
+bash scripts/smoke-test.sh
+```
+
+3. Abre Grafana en `http://localhost:3000` e inicia sesion con `admin` / `admin`.
+4. Ve a `Dashboards` y abre `Fraud Detection Observability`.
+5. En el dashboard revisa:
+
+- `HTTP Throughput` para ver el trafico por servicio.
+- `P95 HTTP Latency` para latencia.
+- `HTTP 5xx (5m)` para errores.
+- `Container Logs` para logs en vivo (filtrables por servicio).
+
+6. Abre tambien el dashboard `Fraud Alerting Live` para ver:
+
+- `Fraud Alerts (1m)` con el total del ultimo minuto.
+- `Prometheus Rule Status` (`OK` / `FIRING`) para la regla `FraudAlertDetected`.
+- `Fraud Alert Rate` y `Average Fraud Risk Score`.
+- `Fraud Alert Logs` filtrado a eventos `Sending FRAUD alert`.
+
+Tip: para ver mas actividad en logs, deja abierto el panel `Container Logs` y vuelve a correr `bash scripts/generate-traffic.sh`.
 
 ## API principal
 

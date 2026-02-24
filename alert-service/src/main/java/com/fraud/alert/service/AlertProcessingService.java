@@ -20,15 +20,18 @@ public class AlertProcessingService {
     private final ProcessedEventRepository processedEventRepository;
     private final AlertRepository alertRepository;
     private final NotificationGateway notificationGateway;
+    private final AlertMetrics alertMetrics;
 
     public AlertProcessingService(
             ProcessedEventRepository processedEventRepository,
             AlertRepository alertRepository,
-            NotificationGateway notificationGateway
+            NotificationGateway notificationGateway,
+            AlertMetrics alertMetrics
     ) {
         this.processedEventRepository = processedEventRepository;
         this.alertRepository = alertRepository;
         this.notificationGateway = notificationGateway;
+        this.alertMetrics = alertMetrics;
     }
 
     @Transactional
@@ -43,6 +46,7 @@ public class AlertProcessingService {
 
         alertRepository.save(alert);
         processedEventRepository.save(new ProcessedEvent(event.eventId(), now));
+        alertMetrics.recordAlertCreated(alert);
         notificationGateway.notifyFraud(alert);
     }
 }

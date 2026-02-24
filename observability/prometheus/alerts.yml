@@ -1,0 +1,12 @@
+groups:
+  - name: fraud-detection-alerts
+    rules:
+      - alert: FraudAlertDetected
+        expr: increase(fraud_alerts_total[1m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          team: fraud
+        annotations:
+          summary: "Se detectaron alertas de fraude"
+          description: "Se crearon {{ $value }} alertas de fraude en el ultimo minuto."
