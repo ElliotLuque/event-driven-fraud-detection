@@ -10,3 +10,23 @@ groups:
         annotations:
           summary: "Se detectaron alertas de fraude"
           description: "Se crearon {{ $value }} alertas de fraude en el último minuto."
+
+      - alert: KafkaDlqTrafficDetected
+        expr: sum(increase(kafka_dlq_events_received_total[5m])) by (application) > 0
+        for: 0m
+        labels:
+          severity: warning
+          team: fraud
+        annotations:
+          summary: "Hay eventos en DLQ"
+          description: "La aplicación {{ $labels.application }} recibió {{ $value }} eventos DLQ en los últimos 5 minutos."
+
+      - alert: KafkaDlqReprocessFailed
+        expr: sum(increase(kafka_dlq_events_failed_total[5m])) by (application) > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: fraud
+        annotations:
+          summary: "Falló el reproceso de eventos DLQ"
+          description: "La aplicación {{ $labels.application }} falló al reprocesar {{ $value }} eventos DLQ en los últimos 5 minutos."

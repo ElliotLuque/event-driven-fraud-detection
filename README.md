@@ -69,6 +69,18 @@ Cada consumidor incluye:
 - Retries con backoff.
 - Envio automatico a DLQ cuando excede reintentos.
 
+### Reproceso de DLQ
+
+- `fraud-detection-service` consume `transactions.created.dlq` y vuelve a ejecutar la evaluacion de fraude.
+- `alert-service` consume `fraud.detected.dlq` y vuelve a ejecutar la creacion de alertas.
+- Si el reproceso vuelve a fallar, el evento no se reencola automaticamente: se registra error y se incrementan metricas operativas para investigacion.
+
+Metricas Prometheus de DLQ:
+
+- `kafka_dlq_events_received_total`: eventos leidos desde DLQ.
+- `kafka_dlq_events_reprocessed_total`: eventos DLQ reprocesados con exito.
+- `kafka_dlq_events_failed_total`: eventos DLQ cuyo reproceso fallo.
+
 ## Stack
 
 - Java 21
@@ -154,6 +166,8 @@ Metricas de fraude disponibles:
 Regla de alerta Prometheus incluida:
 
 - `FraudAlertDetected`: se activa cuando `increase(fraud_alerts_created_total[1m]) > 0`.
+- `KafkaDlqTrafficDetected`: se activa cuando hay trafico en DLQ en los ultimos 5 minutos.
+- `KafkaDlqReprocessFailed`: se activa cuando falla el reproceso de eventos DLQ.
 
 Consultas rapidas:
 
