@@ -9,4 +9,4 @@ groups:
           team: fraud
         annotations:
           summary: "Se detectaron alertas de fraude"
-          description: "Se crearon {{ $value }} alertas de fraude en el ultimo minuto."
+          description: "Se crearon {{ $value }} alertas de fraude en el último minuto."
