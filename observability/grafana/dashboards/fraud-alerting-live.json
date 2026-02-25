@@ -75,7 +75,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(increase(fraud_alerts_total[1m]))",
+          "expr": "sum(increase(fraud_alerts_created_total[1m]))",
           "legendFormat": "",
           "range": true,
           "refId": "A"
@@ -213,7 +213,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(fraud_alerts_total)",
+          "expr": "sum(fraud_alerts_created_total)",
           "legendFormat": "",
           "range": true,
           "refId": "A"
@@ -272,7 +272,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(fraud_alerts_total[1m])) * 60",
+          "expr": "sum(rate(fraud_alerts_created_total[1m])) * 60",
           "legendFormat": "alerts/min",
           "range": true,
           "refId": "A"

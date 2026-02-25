@@ -148,12 +148,12 @@ Endpoints de metricas expuestos por servicio:
 
 Metricas de fraude disponibles:
 
-- `fraud_alerts_total`: total de alertas de fraude creadas.
+- `fraud_alerts_created_total`: total de alertas de fraude creadas.
 - `fraud_alert_risk_score_*`: distribucion de score de riesgo.
 
 Regla de alerta Prometheus incluida:
 
-- `FraudAlertDetected`: se activa cuando `increase(fraud_alerts_total[1m]) > 0`.
+- `FraudAlertDetected`: se activa cuando `increase(fraud_alerts_created_total[1m]) > 0`.
 
 Consultas rapidas:
 
