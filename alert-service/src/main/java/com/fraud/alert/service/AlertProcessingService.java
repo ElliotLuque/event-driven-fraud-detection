@@ -1,6 +1,7 @@
 package com.fraud.alert.service;
 
 import com.fraud.alert.events.FraudDetectedEvent;
+import com.fraud.alert.mapping.AlertEventMapper;
 import com.fraud.alert.model.Alert;
 import com.fraud.alert.model.ProcessedEvent;
 import com.fraud.alert.repository.AlertRepository;
@@ -19,17 +20,20 @@ public class AlertProcessingService {
 
     private final ProcessedEventRepository processedEventRepository;
     private final AlertRepository alertRepository;
+    private final AlertEventMapper alertEventMapper;
     private final NotificationGateway notificationGateway;
     private final AlertMetrics alertMetrics;
 
     public AlertProcessingService(
             ProcessedEventRepository processedEventRepository,
             AlertRepository alertRepository,
+            AlertEventMapper alertEventMapper,
             NotificationGateway notificationGateway,
             AlertMetrics alertMetrics
     ) {
         this.processedEventRepository = processedEventRepository;
         this.alertRepository = alertRepository;
+        this.alertEventMapper = alertEventMapper;
         this.notificationGateway = notificationGateway;
         this.alertMetrics = alertMetrics;
     }
@@ -42,7 +46,7 @@ public class AlertProcessingService {
         }
 
         Instant now = Instant.now();
-        Alert alert = Alert.fromEvent(event, now);
+        Alert alert = alertEventMapper.toAlert(event, now);
 
         alertRepository.save(alert);
         processedEventRepository.save(new ProcessedEvent(event.eventId(), now));
