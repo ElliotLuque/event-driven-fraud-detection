@@ -3,6 +3,8 @@ package com.fraud.detection.service;
 import com.fraud.detection.config.FraudRulesProperties;
 import com.fraud.detection.events.FraudDetectedEvent;
 import com.fraud.detection.events.TransactionCreatedEvent;
+import com.fraud.detection.mapping.FraudDetectedEventMapper;
+import com.fraud.detection.mapping.UserTransactionHistoryMapper;
 import com.fraud.detection.messaging.FraudEventPublisher;
 import com.fraud.detection.model.ProcessedEvent;
 import com.fraud.detection.model.UserTransactionHistory;
@@ -30,19 +32,25 @@ public class FraudDetectionService {
     private final FraudRulesEngine fraudRulesEngine;
     private final FraudEventPublisher fraudEventPublisher;
     private final FraudRulesProperties rules;
+    private final UserTransactionHistoryMapper userTransactionHistoryMapper;
+    private final FraudDetectedEventMapper fraudDetectedEventMapper;
 
     public FraudDetectionService(
             ProcessedEventRepository processedEventRepository,
             UserTransactionHistoryRepository historyRepository,
             FraudRulesEngine fraudRulesEngine,
             FraudEventPublisher fraudEventPublisher,
-            FraudRulesProperties rules
+            FraudRulesProperties rules,
+            UserTransactionHistoryMapper userTransactionHistoryMapper,
+            FraudDetectedEventMapper fraudDetectedEventMapper
     ) {
         this.processedEventRepository = processedEventRepository;
         this.historyRepository = historyRepository;
         this.fraudRulesEngine = fraudRulesEngine;
         this.fraudEventPublisher = fraudEventPublisher;
         this.rules = rules;
+        this.userTransactionHistoryMapper = userTransactionHistoryMapper;
+        this.fraudDetectedEventMapper = fraudDetectedEventMapper;
     }
 
     @Transactional
@@ -63,20 +71,18 @@ public class FraudDetectionService {
 
         FraudEvaluation evaluation = fraudRulesEngine.evaluate(event, lastTransaction, recentTransactionsCount, occurredAt);
 
-        historyRepository.save(UserTransactionHistory.fromEvent(event, occurredAt));
+        historyRepository.save(userTransactionHistoryMapper.toHistory(event, occurredAt));
         processedEventRepository.save(new ProcessedEvent(event.eventId(), occurredAt));
 
         if (!evaluation.fraudulent()) {
             return;
         }
 
-        FraudDetectedEvent fraudDetectedEvent = new FraudDetectedEvent(
+        FraudDetectedEvent fraudDetectedEvent = fraudDetectedEventMapper.toFraudDetectedEvent(
+                event,
+                evaluation,
                 UUID.randomUUID().toString(),
                 Instant.now(),
-                event.transactionId(),
-                event.userId(),
-                evaluation.riskScore(),
-                evaluation.reasons(),
                 RULE_VERSION
         );
         fraudEventPublisher.publish(fraudDetectedEvent);

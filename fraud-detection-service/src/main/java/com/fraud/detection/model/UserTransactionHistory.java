@@ -1,6 +1,5 @@
 package com.fraud.detection.model;
 
-import com.fraud.detection.events.TransactionCreatedEvent;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -66,18 +65,6 @@ public class UserTransactionHistory {
         this.merchantId = merchantId;
         this.country = country;
         this.occurredAt = occurredAt;
-    }
-
-    public static UserTransactionHistory fromEvent(TransactionCreatedEvent event, Instant occurredAt) {
-        return new UserTransactionHistory(
-                event.transactionId(),
-                event.userId(),
-                event.amount(),
-                event.currency(),
-                event.merchantId(),
-                event.country(),
-                occurredAt
-        );
     }
 
     public Long getId() {
