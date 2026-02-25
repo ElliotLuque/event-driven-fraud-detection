@@ -160,12 +160,12 @@ Endpoints de metricas expuestos por servicio:
 
 Metricas de fraude disponibles:
 
-- `fraud_alerts_created_total`: total de alertas de fraude creadas.
+- `fraud_alerts_total`: total de alertas de fraude creadas.
 - `fraud_alert_risk_score_*`: distribucion de score de riesgo.
 
 Regla de alerta Prometheus incluida:
 
-- `FraudAlertDetected`: se activa cuando `increase(fraud_alerts_created_total[1m]) > 0`.
+- `FraudAlertDetected`: se activa cuando `increase(fraud_alerts_total[1m]) > 0`.
 - `KafkaDlqTrafficDetected`: se activa cuando hay trafico en DLQ en los ultimos 5 minutos.
 - `KafkaDlqReprocessFailed`: se activa cuando falla el reproceso de eventos DLQ.
 
@@ -201,6 +201,31 @@ Tambien puedes ejecutar el smoke test puntual:
 
 ```bash
 bash scripts/smoke-test.sh
+```
+
+Scripts adicionales utiles para pruebas:
+
+```bash
+# Genera escenarios concretos de fraude
+bash scripts/generate-fraud-scenarios.sh mixed
+
+# Verifica salud de servicios y queries de Prometheus usadas en dashboard
+bash scripts/check-observability.sh
+
+# Monitorea en vivo las metricas clave de fraude
+bash scripts/watch-fraud-metrics.sh
+
+# Genera trafico continuo mixto (normal + sospechoso)
+bash scripts/generate-live-traffic.sh
+
+# Genera ondas de trafico para ver picos en paneles
+bash scripts/generate-burst-pattern.sh
+
+# Genera recorridos por usuario y luego consulta sus alertas
+bash scripts/generate-user-journeys.sh
+
+# Genera 300 requests con mezcla de 2xx, 4xx, 5xx y pocas alertas (15-20%)
+bash scripts/generate-mixed-errors-traffic.sh
 ```
 
 3. Abre Grafana en `http://localhost:3000` e inicia sesion con `admin` / `admin`.

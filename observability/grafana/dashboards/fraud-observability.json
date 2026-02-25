@@ -78,7 +78,7 @@
         {
           "editorMode": "code",
           "expr": "sum(up{job=\"spring-services\"})",
-          "legendFormat": "",
+          "legendFormat": "Running instances",
           "range": true,
           "refId": "A"
         }
@@ -234,8 +234,8 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "1000 * histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=~\"$application\",uri!~\"/actuator.*\"}[5m])) by (le))",
-          "legendFormat": "",
+          "expr": "1000 * (histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=~\"$application\",uri!~\"/actuator.*\"}[5m])) by (le)) or (sum(increase(http_server_requests_seconds_sum{application=~\"$application\",uri!~\"/actuator.*\"}[5m])) / clamp_min(sum(increase(http_server_requests_seconds_count{application=~\"$application\",uri!~\"/actuator.*\"}[5m])), 1)))",
+          "legendFormat": "P95 latency (ms)",
           "range": true,
           "refId": "A"
         }
@@ -530,8 +530,16 @@
       {
         "current": {
           "selected": true,
-          "text": "All",
-          "value": "$__all"
+          "text": [
+            "transaction-service",
+            "fraud-detection-service",
+            "alert-service"
+          ],
+          "value": [
+            "transaction-service",
+            "fraud-detection-service",
+            "alert-service"
+          ]
         },
         "datasource": {
           "type": "loki",
@@ -540,10 +548,10 @@
         "hide": 0,
         "includeAll": true,
         "label": "Service Logs",
-        "multi": false,
+        "multi": true,
         "name": "service",
         "options": [],
-        "query": "label_values({compose_project=\"event-driven-fraud-detection\"}, service)",
+        "query": "label_values({compose_project=\"event-driven-fraud-detection\",service=~\"(transaction-service|fraud-detection-service|alert-service)\"}, service)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,

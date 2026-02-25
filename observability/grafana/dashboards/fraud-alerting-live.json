@@ -75,8 +75,8 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(increase(fraud_alerts_created_total[1m]))",
-          "legendFormat": "",
+          "expr": "sum(increase(fraud_alerts_total[1m]))",
+          "legendFormat": "Fraud alerts (last 1m)",
           "range": true,
           "refId": "A"
         }
@@ -151,7 +151,7 @@
         {
           "editorMode": "code",
           "expr": "max(ALERTS{alertname=\"FraudAlertDetected\",alertstate=\"firing\"}) OR on() vector(0)",
-          "legendFormat": "",
+          "legendFormat": "Fraud alert rule state",
           "range": true,
           "refId": "A"
         }
@@ -213,8 +213,8 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(fraud_alerts_created_total)",
-          "legendFormat": "",
+          "expr": "sum(fraud_alerts_total)",
+          "legendFormat": "Fraud alerts (total)",
           "range": true,
           "refId": "A"
         }
@@ -272,7 +272,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(fraud_alerts_created_total[1m])) * 60",
+          "expr": "sum(rate(fraud_alerts_total[1m])) * 60",
           "legendFormat": "alerts/min",
           "range": true,
           "refId": "A"

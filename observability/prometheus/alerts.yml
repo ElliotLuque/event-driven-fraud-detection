@@ -2,7 +2,7 @@ groups:
   - name: fraud-detection-alerts
     rules:
       - alert: FraudAlertDetected
-        expr: increase(fraud_alerts_created_total[1m]) > 0
+        expr: increase(fraud_alerts_total[1m]) > 0
         for: 0m
         labels:
           severity: warning
