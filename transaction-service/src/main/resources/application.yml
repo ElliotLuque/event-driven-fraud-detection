@@ -24,6 +24,8 @@ spring:
       retries: 5
       properties:
         spring.json.add.type.headers: false
+        buffer.memory: 33554432
+        max.block.ms: 5000
     admin:
       auto-create: true
 

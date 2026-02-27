@@ -54,6 +54,9 @@ management:
       application: ${spring.application.name}
 
 app:
+  data-retention:
+    processed-event-ttl: PT1H
+    cleanup-interval: 300000
   kafka:
     topics:
       fraud-detected: fraud.detected

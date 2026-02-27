@@ -58,6 +58,10 @@ app:
     topics:
       transactions-created: transactions.created
       fraud-detected: fraud.detected
+  data-retention:
+    processed-event-ttl: PT1H
+    transaction-history-ttl: PT1H
+    cleanup-interval: 300000
   fraud:
     rules:
       high-amount-threshold: 10000.00
