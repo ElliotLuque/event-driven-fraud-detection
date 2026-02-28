@@ -13,7 +13,7 @@ public class AlertMetrics {
     private final DistributionSummary fraudAlertRiskScoreSummary;
 
     public AlertMetrics(MeterRegistry meterRegistry) {
-        this.fraudAlertsCreatedCounter = Counter.builder("fraud_alerts_created")
+        this.fraudAlertsCreatedCounter = Counter.builder("fraud_alerts")
                 .description("Total fraud alerts created by alert-service")
                 .register(meterRegistry);
         this.fraudAlertRiskScoreSummary = DistributionSummary.builder("fraud_alert_risk_score")
