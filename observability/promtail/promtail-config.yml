@@ -23,3 +23,16 @@ scrape_configs:
         target_label: container
     pipeline_stages:
       - docker: {}
+      - match:
+          selector: '{service=~"transaction-service|fraud-detection-service|alert-service"}'
+          stages:
+            - json:
+                expressions:
+                  level: level
+                  logger: logger_name
+                  traceId: traceId
+                  spanId: spanId
+                  svc: service
+            - labels:
+                level:
+                traceId:
