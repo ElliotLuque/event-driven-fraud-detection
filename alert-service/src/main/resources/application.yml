@@ -32,10 +32,13 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
         spring.json.add.type.headers: false
+    template:
+      observation-enabled: true
     listener:
       ack-mode: record
       missing-topics-fatal: false
       concurrency: 2
+      observation-enabled: true
     admin:
       auto-create: true
 
@@ -52,8 +55,27 @@ management:
         http.server.requests: 50ms,100ms,200ms,500ms,1s,2s,5s
     tags:
       application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${MANAGEMENT_OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}
+
+spring.mail:
+  host: ${SPRING_MAIL_HOST:localhost}
+  port: ${SPRING_MAIL_PORT:1025}
+  properties:
+    mail.smtp.auth: ${SPRING_MAIL_SMTP_AUTH:false}
+    mail.smtp.starttls.enable: ${SPRING_MAIL_SMTP_STARTTLS:false}
 
 app:
+  notification:
+    log-enabled: true
+    email:
+      enabled: ${APP_NOTIFICATION_EMAIL_ENABLED:false}
+      from: ${APP_NOTIFICATION_EMAIL_FROM:fraud-alerts@fraud-detection.local}
+      to: ${APP_NOTIFICATION_EMAIL_TO:}
   data-retention:
     processed-event-ttl: PT1H
     cleanup-interval: 300000
