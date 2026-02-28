@@ -12,5 +12,6 @@
         <module>transaction-service</module>
         <module>fraud-detection-service</module>
         <module>alert-service</module>
+        <module>e2e-tests</module>
     </modules>
 </project>
