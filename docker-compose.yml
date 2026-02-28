@@ -104,6 +104,7 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
 
   fraud-detection-service:
     build:
@@ -122,6 +123,14 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
 
   alert-service:
     build:
@@ -132,6 +141,8 @@ services:
         condition: service_healthy
       alert-db:
         condition: service_healthy
+      mailhog:
+        condition: service_started
     ports:
       - "8082:8082"
     environment:
@@ -140,6 +151,12 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
+      SPRING_MAIL_HOST: mailhog
+      SPRING_MAIL_PORT: 1025
+      APP_NOTIFICATION_EMAIL_ENABLED: true
+      APP_NOTIFICATION_EMAIL_FROM: fraud-alerts@fraud-detection.local
+      APP_NOTIFICATION_EMAIL_TO: security-team@fraud-detection.local
 
   prometheus:
     image: prom/prometheus:v2.54.1
@@ -150,6 +167,10 @@ services:
       - alert-service
     ports:
       - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--web.enable-remote-write-receiver"
+      - "--enable-feature=exemplar-storage"
     volumes:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
@@ -174,12 +195,25 @@ services:
       - ./observability/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
+  tempo:
+    image: grafana/tempo:2.5.0
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo/tempo-config.yml"]
+    ports:
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./observability/tempo/tempo-config.yml:/etc/tempo/tempo-config.yml:ro
+      - tempo-data:/var/tempo
+
   grafana:
     image: grafana/grafana:11.1.4
     restart: unless-stopped
     depends_on:
       - prometheus
       - loki
+      - tempo
     ports:
       - "3000:3000"
     environment:
@@ -193,3 +227,4 @@ services:
 volumes:
   loki-data:
   grafana-data:
+  tempo-data:
