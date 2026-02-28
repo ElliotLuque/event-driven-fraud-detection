@@ -21,98 +21,64 @@ Kafka topic: fraud.detected
       |
       v
 Alert Service --> PostgreSQL (alerts + idempotency)
+      |
+      v
+Notification Channels (Log + Email via SMTP)
 ```
 
 ### Servicios
 
-1. `transaction-service`
+1. **transaction-service** (puerto 8080)
     - Expone API REST y endpoint webhook.
-    - Persiste la transaccion.
+    - Persiste la transacción.
     - Publica evento `TransactionCreated` en Kafka.
 
-2. `fraud-detection-service`
+2. **fraud-detection-service** (puerto 8081)
     - Consume `TransactionCreated`.
     - Aplica reglas de fraude.
     - Publica `FraudDetected` cuando corresponde.
 
-3. `alert-service`
+3. **alert-service** (puerto 8082)
     - Consume `FraudDetected`.
-    - Registra alertas.
-    - Simula notificacion via logs.
+    - Registra alertas en BD.
+    - Envía notificaciones via múltiples canales (Log + Email).
 
 ## Resiliencia incluida
 
-- Idempotencia en consumidores (`eventId` en tabla `processed_events`).
-- Retries de consumidor con backoff fijo.
-- Dead Letter Topic (DLQ) por topico principal.
-- Persistencia local por servicio para mantener responsabilidades separadas.
+- **Idempotencia** en consumidores (`eventId` en tabla `processed_events`).
+- **Retries** de consumidor con backoff fijo (1s, 3 intentos).
+- **Dead Letter Topic (DLQ)** por tópico principal.
+- **Reproceso automático** de eventos desde DLQ.
+- **Persistencia local** por servicio para mantener responsabilidades separadas.
 
-## Reglas de fraude incluidas (MVP)
+## Reglas de fraude incluidas
 
-- `HIGH_AMOUNT`: monto superior al umbral.
-- `HIGH_VELOCITY`: muchas transacciones en ventana corta.
-- `COUNTRY_CHANGE_IN_SHORT_WINDOW`: cambio de pais sospechoso.
-- `HIGH_RISK_MERCHANT`: comercio en lista de riesgo.
+| Regla | Condición | Score |
+|-------|-----------|-------|
+| `HIGH_AMOUNT` | monto > $10,000 | +45 |
+| `HIGH_VELOCITY` | 5+ transacciones en 1 minuto | +35 |
+| `COUNTRY_CHANGE_IN_SHORT_WINDOW` | cambio de país en 30 min | +30 |
+| `HIGH_RISK_MERCHANT` | merchant en lista: MRC-999, MRC-666, MRC-404 | +25 |
 
 El score final se calcula por suma de reglas y se limita a 100.
 
 ## Topics Kafka
 
-- `transactions.created`
-- `fraud.detected`
+- `transactions.created` (6 particiones)
+- `fraud.detected` (6 particiones)
 - `transactions.created.dlq`
 - `fraud.detected.dlq`
 
-Cada consumidor incluye:
-
-- Idempotencia basada en `eventId`.
-- Retries con backoff.
-- Envio automatico a DLQ cuando excede reintentos.
-
-### Reproceso de DLQ
-
-- `fraud-detection-service` consume `transactions.created.dlq` y vuelve a ejecutar la evaluacion de fraude.
-- `alert-service` consume `fraud.detected.dlq` y vuelve a ejecutar la creacion de alertas.
-- Si el reproceso vuelve a fallar, el evento no se reencola automaticamente: se registra error y se incrementan metricas operativas para investigacion.
-
-Metricas Prometheus de DLQ:
-
-- `kafka_dlq_events_received_total`: eventos leidos desde DLQ.
-- `kafka_dlq_events_reprocessed_total`: eventos DLQ reprocesados con exito.
-- `kafka_dlq_events_failed_total`: eventos DLQ cuyo reproceso fallo.
-
 ## Stack
 
-- Java 21
-- Spring Boot 3
-- Spring Data JPA
-- Spring Kafka
-- PostgreSQL
+- Java 21 / Spring Boot 3.3.2
+- Spring Data JPA + Spring Kafka
+- PostgreSQL (3 bases de datos dedicadas)
 - Docker Compose
-- Prometheus
-- Loki
-- Grafana
+- **Observabilidad:** Prometheus + Loki + Promtail + Tempo + Grafana
+- **Testing:** JUnit 5 + Testcontainers + RestAssured + Awaitility
 
-## IntelliJ IDEA
-
-Este repositorio ya esta preparado para IntelliJ con:
-
-- Proyecto Maven multi-modulo (importa el `pom.xml` raiz).
-- Configuraciones compartidas en `.run/` para levantar cada microservicio desde el IDE.
-
-Pasos recomendados:
-
-1. Abre IntelliJ y selecciona `Open` sobre la carpeta del proyecto.
-2. Cuando IntelliJ detecte Maven, importa el proyecto desde el `pom.xml` raiz.
-3. Configura JDK 21 en `File > Project Structure`.
-4. Abre `Run/Debug Configurations` y ejecuta una de estas configuraciones:
-   - `transaction-service`
-   - `fraud-detection-service`
-   - `alert-service`
-
-Nota: para ejecutar los tres servicios en paralelo desde IntelliJ, inicia las tres configuraciones una por una (o crea un Compound Run Configuration en el IDE).
-
-## Ejecutar localmente con Docker
+## Ejecutar localmente
 
 ```bash
 docker compose up -d --build
@@ -120,137 +86,122 @@ docker compose up -d --build
 
 Servicios disponibles:
 
-- Transaction Service: `http://localhost:8080`
-- Fraud Detection Service: `http://localhost:8081`
-- Alert Service: `http://localhost:8082`
-- Kafka UI: `http://localhost:8089`
-- Prometheus: `http://localhost:9090`
-- Loki API: `http://localhost:3100`
-- Grafana: `http://localhost:3000` (usuario `admin`, password `admin`)
+| Servicio | URL |
+|----------|-----|
+| Transaction Service | http://localhost:8080 |
+| Fraud Detection Service | http://localhost:8081 |
+| Alert Service | http://localhost:8082 |
+| Kafka UI | http://localhost:8089 |
+| Prometheus | http://localhost:9090 |
+| Loki API | http://localhost:3100 |
+| Grafana | http://localhost:3000 (admin/admin) |
+| MailHog (emails) | http://localhost:8025 |
+| Tempo (traces) | http://localhost:3200 |
 
-Variables utiles para pruebas locales:
+## Notificaciones
 
-- `SPRING_KAFKA_BOOTSTRAP_SERVERS`
-- `SPRING_DATASOURCE_URL`
-- `SPRING_DATASOURCE_USERNAME`
-- `SPRING_DATASOURCE_PASSWORD`
+El `alert-service` envía notificaciones por dos canales:
 
-Para ver logs:
+1. **Log** — siempre activo, escribe en logs del contenedor
+2. **Email** — habilitable via configuración
+
+### Configurar email
+
+Por defecto está deshabilitado. Para activar:
+
+```yaml
+# alert-service/src/main/resources/application.yml
+app.notification:
+  email:
+    enabled: true
+    from: fraud-alerts@tu-dominio.com
+    to:
+      - security@tu-dominio.com
+```
+
+O via variables de entorno:
 
 ```bash
-docker compose logs -f transaction-service fraud-detection-service alert-service
+APP_NOTIFICATION_EMAIL_ENABLED=true
+APP_NOTIFICATION_EMAIL_TO=security@tu-dominio.com
 ```
+
+**MailHog** está incluido en Docker Compose para desarrollo local — captura todos los emails enviados sin necesidad de un servidor SMTP real. Accede a http://localhost:8025 para ver los emails.
+
+Los emails incluyen un template HTML profesional con:
+- Color de severidad según risk score (rojo/naranja/amarillo/verde)
+- Información de la transacción
+- Lista de reglas que dispararon la alerta
 
 ## Observabilidad
 
-El proyecto incluye un stack de observabilidad listo para usar con Docker Compose:
+El proyecto incluye un stack completo de observabilidad:
 
-- `Prometheus` para metricas de los microservicios (`/actuator/prometheus`).
-- `Loki` para almacenamiento de logs.
-- `Promtail` para recoleccion de logs de contenedores Docker.
-- `Grafana` con datasources de Prometheus y Loki preconfigurados.
-- Dashboard provisionado automaticamente: `Fraud Detection Observability`.
-- Dashboard de alertas en vivo: `Fraud Alerting Live`.
+- **Prometheus** — métricas de los microservicios (`/actuator/prometheus`)
+- **Loki** — almacenamiento de logs estructurados JSON
+- **Promtail** — recolección de logs de contenedores Docker
+- **Tempo** — trazas distribuidas (OpenTelemetry)
+- **Grafana** — dashboards y visualización
 
-Endpoints de metricas expuestos por servicio:
+### Dashboards disponibles
 
-- `http://localhost:8080/actuator/prometheus`
-- `http://localhost:8081/actuator/prometheus`
-- `http://localhost:8082/actuator/prometheus`
+1. **Fraud Detection Observability** — HTTP throughput, latencia P95, errores 5xx, logs
+2. **Fraud Alerting Live** — alertas en vivo, score promedio, estado de reglas Prometheus
+3. **Fraud Tracing** — trazas distribuidas correlacionadas con logs
 
-Metricas de fraude disponibles:
+### Trazas distribuidas
 
-- `fraud_alerts_total`: total de alertas de fraude creadas.
-- `fraud_alert_risk_score_*`: distribucion de score de riesgo.
+El sistema propaga `traceId` y `spanId` a través de:
+- HTTP requests (OpenTelemetry bridge)
+- Mensajes Kafka (con `observation-enabled`)
+- Logs (incluidos en JSON estructurado)
 
-Regla de alerta Prometheus incluida:
+Puedes ver la traza completa de una transacción desde `transaction-service` → `fraud-detection-service` → `alert-service` en Grafana > Explore > Tempo.
 
-- `FraudAlertDetected`: se activa cuando `increase(fraud_alerts_total[1m]) > 0`.
-- `KafkaDlqTrafficDetected`: se activa cuando hay trafico en DLQ en los ultimos 5 minutos.
-- `KafkaDlqReprocessFailed`: se activa cuando falla el reproceso de eventos DLQ.
+### Métricas Prometheus
 
-Consultas rapidas:
+Métricas de negocio:
 
-- Tasa de requests por servicio en Prometheus:
+- `fraud_alerts_total` — total de alertas creadas
+- `fraud_alert_risk_score_count` — cantidad de alertas
+- `fafka_dlq_events_received_total` — eventos DLQ leídos
+- `kafka_dlq_events_reprocessed_total` — eventos DLQ reprocesados
+- `kafka_dlq_events_failed_total` — eventos DLQ que fallaron
 
-```promql
-sum(rate(http_server_requests_seconds_count[1m])) by (application)
+### Logs estructurados JSON
+
+Todos los servicios emitien logs en formato JSON estructurado:
+
+```json
+{
+  "timestamp": "2026-02-28T15:30:45.123Z",
+  "level": "INFO",
+  "logger_name": "com.fraud.transaction.service.TransactionService",
+  "message": "Transaction created: txn-abc123",
+  "service": "transaction-service",
+  "traceId": "a1b2c3d4e5f6789012345678",
+  "spanId": "1234567890abcdef"
+}
 ```
 
-- Uso de heap JVM por servicio:
+Esto permite:
+- Filtrado eficiente en Loki por `level`, `service`, `traceId`
+- Correlación logs ↔ traces en Grafana
+- Búsqueda avanzada con LogQL
 
-```promql
-sum(jvm_memory_used_bytes{area="heap"}) by (application)
-```
-
-### Verlo en accion en Grafana
-
-1. Levanta todo el stack:
+Para desarrollo local con logs legibles:
 
 ```bash
-docker compose up -d --build
+SPRING_PROFILES_ACTIVE=dev mvn spring-boot:run -pl transaction-service
 ```
 
-2. Genera trafico y eventos de fraude:
+## API
+
+### Crear transacción (REST)
 
 ```bash
-bash scripts/generate-traffic.sh
+POST http://localhost:8080/api/v1/transactions
 ```
-
-Tambien puedes ejecutar el smoke test puntual:
-
-```bash
-bash scripts/smoke-test.sh
-```
-
-Scripts adicionales utiles para pruebas:
-
-```bash
-# Genera escenarios concretos de fraude
-bash scripts/generate-fraud-scenarios.sh mixed
-
-# Verifica salud de servicios y queries de Prometheus usadas en dashboard
-bash scripts/check-observability.sh
-
-# Monitorea en vivo las metricas clave de fraude
-bash scripts/watch-fraud-metrics.sh
-
-# Genera trafico continuo mixto (normal + sospechoso)
-bash scripts/generate-live-traffic.sh
-
-# Genera ondas de trafico para ver picos en paneles
-bash scripts/generate-burst-pattern.sh
-
-# Genera recorridos por usuario y luego consulta sus alertas
-bash scripts/generate-user-journeys.sh
-
-# Genera 300 requests con mezcla de 2xx, 4xx, 5xx y pocas alertas (15-20%)
-bash scripts/generate-mixed-errors-traffic.sh
-```
-
-3. Abre Grafana en `http://localhost:3000` e inicia sesion con `admin` / `admin`.
-4. Ve a `Dashboards` y abre `Fraud Detection Observability`.
-5. En el dashboard revisa:
-
-- `HTTP Throughput` para ver el trafico por servicio.
-- `P95 HTTP Latency` para latencia.
-- `HTTP 5xx (5m)` para errores.
-- `Container Logs` para logs en vivo (filtrables por servicio).
-
-6. Abre tambien el dashboard `Fraud Alerting Live` para ver:
-
-- `Fraud Alerts (1m)` con el total del ultimo minuto.
-- `Prometheus Rule Status` (`OK` / `FIRING`) para la regla `FraudAlertDetected`.
-- `Fraud Alert Rate` y `Average Fraud Risk Score`.
-- `Fraud Alert Logs` filtrado a eventos `Sending FRAUD alert`.
-
-Tip: para ver mas actividad en logs, deja abierto el panel `Container Logs` y vuelve a correr `bash scripts/generate-traffic.sh`.
-
-## API principal
-
-### Crear transaccion (REST)
-
-`POST http://localhost:8080/api/v1/transactions`
 
 ```json
 {
@@ -263,60 +214,99 @@ Tip: para ver mas actividad en logs, deja abierto el panel `Container Logs` y vu
 }
 ```
 
-### Crear transaccion (webhook)
+### Crear transacción (webhook)
 
-`POST http://localhost:8080/api/v1/webhooks/transactions`
+```bash
+POST http://localhost:8080/api/v1/webhooks/transactions
+```
 
-Mismo payload que el endpoint REST.
+Mismo payload que REST.
 
 ### Consultar alertas
 
-- `GET http://localhost:8082/api/v1/alerts`
-- `GET http://localhost:8082/api/v1/alerts/users/{userId}`
-
-## Smoke test end-to-end
-
 ```bash
-bash scripts/smoke-test.sh
+GET http://localhost:8082/api/v1/alerts
+GET http://localhost:8082/api/v1/alerts/users/{userId}
 ```
 
-El script crea una transaccion de alto riesgo y consulta las alertas del usuario generado.
-
-## Desarrollo local sin Docker (opcional)
-
-Levanta Kafka + PostgreSQL con Docker y luego ejecuta cada servicio:
+## Scripts de prueba
 
 ```bash
+# Genera tráfico mixto
+bash scripts/generate-traffic.sh
+
+# Smoke test puntual
+bash scripts/smoke-test.sh
+
+# Escenarios específicos de fraude
+bash scripts/generate-fraud-scenarios.sh high-amount
+bash scripts/generate-fraud-scenarios.sh velocity
+bash scripts/generate-fraud-scenarios.sh country-change
+bash scripts/generate-fraud-scenarios.sh mixed
+
+# Tráfico continuo (3 minutos)
+bash scripts/generate-live-traffic.sh
+
+# Ondas de tráfico para ver picos
+bash scripts/generate-burst-pattern.sh
+
+# Verificar salud y métricas
+bash scripts/check-observability.sh
+bash scripts/watch-fraud-metrics.sh
+```
+
+## Tests
+
+### Tests unitarios e integración
+
+```bash
+# Todos los servicios
+mvn test
+
+# Un servicio específico
+mvn test -pl alert-service
+```
+
+Incluye:
+- Tests de reglas de fraude (`fraud-detection-service`)
+- Tests de procesamiento de alertas (`alert-service`)
+- Tests de controladores REST
+- Tests de integración con Testcontainers (Kafka + PostgreSQL)
+
+### Tests End-to-End
+
+El proyecto incluye un módulo de tests E2E que verifica el flujo completo:
+
+```bash
+mvn verify -pl e2e-tests
+```
+
+**Nota:** Requiere Docker ejecutándose. Levanta los 3 servicios + Kafka + PostgreSQL via Testcontainers y ejecuta 5 escenarios:
+1. Transacción fraudulenta genera alerta
+2. Transacción normal NO genera alerta
+3. Webhook endpoint funciona E2E
+4. Múltiples reglas acumulan risk score
+5. Validación de input rechaza requests inválidos
+
+## Desarrollo local sin Docker
+
+```bash
+# Requiere Kafka y PostgreSQL funcionando
 mvn -pl transaction-service spring-boot:run
 mvn -pl fraud-detection-service spring-boot:run
 mvn -pl alert-service spring-boot:run
 ```
 
-## Tests
+Con perfil dev para logs legibles:
 
 ```bash
-mvn test
+SPRING_PROFILES_ACTIVE=dev mvn -pl transaction-service spring-boot:run
 ```
 
-Incluye:
+## Troubleshooting
 
-- Test unitario del motor de reglas (`fraud-detection-service`).
-- Test de integracion con Kafka + PostgreSQL en `transaction-service`.
-- Test de integracion con Kafka + PostgreSQL en `fraud-detection-service`.
-- Test de integracion con Kafka + PostgreSQL en `alert-service`.
-
-Los tests de integracion usan Testcontainers y se omiten automaticamente si Docker no esta disponible.
-
-Si no tienes Maven instalado localmente, puedes ejecutar tests con Docker:
-
-```bash
-docker run --rm -v "$PWD/transaction-service:/app" -w /app maven:3.9.9-eclipse-temurin-21 mvn -B test
-docker run --rm -v "$PWD/fraud-detection-service:/app" -w /app maven:3.9.9-eclipse-temurin-21 mvn -B test
-docker run --rm -v "$PWD/alert-service:/app" -w /app maven:3.9.9-eclipse-temurin-21 mvn -B test
-```
-
-## Troubleshooting rapido
-
-- Si Kafka tarda en responder, valida que `kafka` este en estado healthy en Docker Compose.
-- Si los tests de integracion fallan localmente, confirma que Docker tenga memoria suficiente.
-- Si no ves alertas, espera unos segundos y revisa logs de `fraud-detection-service` y `alert-service`.
+- **Kafka no responde:** verifica que esté en estado `healthy` en Docker Compose
+- **No ves alertas:** espera ~5-10 segundos (tiempo de procesamiento Kafka) y revisa logs
+- **Tests de integración fallan:** confirma que Docker tiene memoria suficiente
+- **Email no llega:** revisa MailHog en http://localhost:8025
+- **Traces no aparecen:** verifica que Tempo esté healthy y `MANAGEMENT_OTLP_TRACING_ENDPOINT` apunte a `http://tempo:4318/v1/traces`
