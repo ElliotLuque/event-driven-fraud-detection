@@ -1,23 +1,11 @@
 package com.fraud.alert.service;
 
 import com.fraud.alert.model.Alert;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
-@Component
-public class NotificationGateway {
+/**
+ * Gateway for sending fraud alert notifications through one or more channels.
+ */
+public interface NotificationGateway {
 
-    private static final Logger log = LoggerFactory.getLogger(NotificationGateway.class);
-
-    public void notifyFraud(Alert alert) {
-        log.warn(
-                "Sending FRAUD alert -> userId={}, transactionId={}, riskScore={}, reasons={}, createdAt={}",
-                alert.getUserId(),
-                alert.getTransactionId(),
-                alert.getRiskScore(),
-                alert.getReasons(),
-                alert.getCreatedAt()
-        );
-    }
+    void notifyFraud(Alert alert);
 }
