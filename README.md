@@ -6,15 +6,19 @@ Backend orientado a eventos para registrar transacciones financieras, detectar f
 
 ```mermaid
 flowchart TD
-    A[Client/API/Webhook]
-    B[Transaction Service<br/>PostgreSQL transactions]
-    C[Kafka topic<br/>transactions.created]
-    D[Fraud Detection Service<br/>PostgreSQL fraud history + idempotency]
-    E[Kafka topic<br/>fraud.detected]
-    F[Alert Service<br/>PostgreSQL alerts + idempotency]
-    G[Canales de notificación<br/>Log + Email vía SMTP]
+    A[Client / API / Webhook] --> B[transaction-service]
 
-    A --> B --> C --> D --> E --> F --> G
+    B --> C[(PostgreSQL<br/>transactions)]
+    B --> D[Kafka topic:<br/>transactions.created]
+
+    D --> E[fraud-detection-service]
+
+    E --> F[(PostgreSQL<br/>fraud_history + processed_events)]
+    E --> G[Kafka topic:<br/>fraud.detected]
+
+    G --> H[alert-service]
+
+    H --> I[(PostgreSQL<br/>alerts + processed_events)]
 ```
 
 ### Servicios
