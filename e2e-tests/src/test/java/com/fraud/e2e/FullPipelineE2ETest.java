@@ -6,8 +6,9 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
-import org.testcontainers.containers.DockerComposeContainer;
+import org.testcontainers.containers.ComposeContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -38,16 +39,16 @@ class FullPipelineE2ETest {
     private static final Duration STARTUP_TIMEOUT = Duration.ofMinutes(4);
 
     @Container
-    static final DockerComposeContainer<?> ENV = new DockerComposeContainer<>(
+    static final ComposeContainer ENV = new ComposeContainer(
+            DockerImageName.parse("docker:24.0.2"),
             new File("docker-compose-e2e.yml"))
-            .withLocalCompose(true)
-            .withExposedService("transaction-service", 8080,
+            .withExposedService("transaction-service-1", 8080,
                     Wait.forHttp("/actuator/health").forStatusCode(200)
                             .withStartupTimeout(STARTUP_TIMEOUT))
-            .withExposedService("alert-service", 8082,
+            .withExposedService("alert-service-1", 8082,
                     Wait.forHttp("/actuator/health").forStatusCode(200)
                             .withStartupTimeout(STARTUP_TIMEOUT))
-            .withExposedService("fraud-detection-service", 8081,
+            .withExposedService("fraud-detection-service-1", 8081,
                     Wait.forHttp("/actuator/health").forStatusCode(200)
                             .withStartupTimeout(STARTUP_TIMEOUT));
 
@@ -56,12 +57,12 @@ class FullPipelineE2ETest {
 
     @BeforeAll
     static void setUp() {
-        String txHost = ENV.getServiceHost("transaction-service", 8080);
-        int txPort = ENV.getServicePort("transaction-service", 8080);
+        String txHost = ENV.getServiceHost("transaction-service-1", 8080);
+        int txPort = ENV.getServicePort("transaction-service-1", 8080);
         transactionServiceUrl = "http://" + txHost + ":" + txPort;
 
-        String alertHost = ENV.getServiceHost("alert-service", 8082);
-        int alertPort = ENV.getServicePort("alert-service", 8082);
+        String alertHost = ENV.getServiceHost("alert-service-1", 8082);
+        int alertPort = ENV.getServicePort("alert-service-1", 8082);
         alertServiceUrl = "http://" + alertHost + ":" + alertPort;
     }
 
