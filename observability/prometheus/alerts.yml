@@ -1,5 +1,5 @@
 groups:
-  - name: fraud-detection-alerts
+  - name: fraud-business-alerts
     rules:
       - alert: FraudAlertDetected
         expr: increase(fraud_alerts_total[1m]) > 0
@@ -8,8 +8,89 @@ groups:
           severity: warning
           team: fraud
         annotations:
-          summary: "Se detectaron alertas de fraude"
-          description: "Se crearon {{ $value }} alertas de fraude en el último minuto."
+          summary: "Fraud alerts detected"
+          description: "{{ $value }} fraud alerts were created in the last minute."
+
+      - alert: FraudPipelineCoverageSLOViolation
+        expr: |
+          (
+            sum(rate(fraud_decisions_total[5m]))
+            /
+            clamp_min(sum(rate(transaction_events_published_total{outcome="success"}[5m])), 1)
+          ) < 0.95
+          and on() (sum(rate(transaction_events_published_total{outcome="success"}[5m])) > 0)
+        for: 10m
+        labels:
+          severity: critical
+          team: fraud
+          slo: pipeline-coverage
+        annotations:
+          summary: "SLO violated: pipeline coverage"
+          description: "Only {{ $value | humanizePercentage }} of successfully published transactions reach a fraud decision (target >= 95%)."
+
+      - alert: FraudToAlertConversionSLOViolation
+        expr: |
+          (
+            sum(rate(fraud_alerts_total[10m])) by (application)
+            /
+            clamp_min(sum(rate(fraud_decisions_total{decision="fraud"}[10m])) by (application), 1)
+          ) < 0.98
+        for: 15m
+        labels:
+          severity: critical
+          team: fraud
+          slo: fraud-to-alert
+        annotations:
+          summary: "SLO violated: fraud-to-alert conversion"
+          description: "Fraud decision to alert conversion is {{ $value | humanizePercentage }} in {{ $labels.application }} (target >= 98%)."
+
+      - alert: NotificationFailureRateHigh
+        expr: |
+          (
+            sum(rate(fraud_alert_notifications_total{outcome="failed"}[10m])) by (application)
+            /
+            clamp_min(sum(rate(fraud_alert_notifications_total{outcome=~"success|failed"}[10m])) by (application), 1)
+          ) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          team: fraud
+          slo: notification-reliability
+        annotations:
+          summary: "High notification failure rate"
+          description: "Failed notifications are above 5% in {{ $labels.application }}. Current value: {{ $value | humanizePercentage }}."
+
+      - alert: FraudEvaluationLatencyHigh
+        expr: |
+          (
+            sum(rate(fraud_evaluation_latency_seconds_sum[10m])) by (application)
+            /
+            clamp_min(sum(rate(fraud_evaluation_latency_seconds_count[10m])) by (application), 1)
+          ) > 0.25
+        for: 10m
+        labels:
+          severity: warning
+          team: fraud
+          slo: decision-latency
+        annotations:
+          summary: "High fraud evaluation latency"
+          description: "Average fraud evaluation latency is above 250ms in {{ $labels.application }}."
+
+      - alert: AlertNotificationLatencyHigh
+        expr: |
+          (
+            sum(rate(fraud_alert_notification_latency_seconds_sum[10m])) by (application)
+            /
+            clamp_min(sum(rate(fraud_alert_notification_latency_seconds_count[10m])) by (application), 1)
+          ) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+          team: fraud
+          slo: notification-latency
+        annotations:
+          summary: "High notification latency"
+          description: "Average notification latency is above 1.5s in {{ $labels.application }}."
 
       - alert: KafkaDlqTrafficDetected
         expr: sum(increase(kafka_dlq_events_received_total[5m])) by (application) > 0
@@ -18,8 +99,8 @@ groups:
           severity: warning
           team: fraud
         annotations:
-          summary: "Hay eventos en DLQ"
-          description: "La aplicación {{ $labels.application }} recibió {{ $value }} eventos DLQ en los últimos 5 minutos."
+          summary: "DLQ traffic detected"
+          description: "Application {{ $labels.application }} received {{ $value }} DLQ events in the last 5 minutes."
 
       - alert: KafkaDlqReprocessFailed
         expr: sum(increase(kafka_dlq_events_failed_total[5m])) by (application) > 0
@@ -28,5 +109,5 @@ groups:
           severity: critical
           team: fraud
         annotations:
-          summary: "Falló el reproceso de eventos DLQ"
-          description: "La aplicación {{ $labels.application }} falló al reprocesar {{ $value }} eventos DLQ en los últimos 5 minutos."
+          summary: "DLQ reprocessing failures detected"
+          description: "Application {{ $labels.application }} failed to reprocess {{ $value }} DLQ events in the last 5 minutes."
