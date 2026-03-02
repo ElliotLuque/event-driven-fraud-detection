@@ -25,6 +25,12 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
+      - name: Install docker-compose compatibility shim
+        run: |
+          printf '#!/bin/sh\nexec docker compose "$@"\n' | sudo tee /usr/local/bin/docker-compose > /dev/null
+          sudo chmod +x /usr/local/bin/docker-compose
+          docker-compose version
+
       - name: Package all services (skip tests)
         run: mvn -B package -DskipTests -pl transaction-service,fraud-detection-service,alert-service
 
