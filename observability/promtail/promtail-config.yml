@@ -32,7 +32,5 @@ scrape_configs:
                   logger: logger_name
                   traceId: traceId
                   spanId: spanId
-                  svc: service
             - labels:
                 level:
-                traceId:
