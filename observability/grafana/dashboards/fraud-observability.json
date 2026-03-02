@@ -19,7 +19,44 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Fraud Alerting Live",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/fraud-alerting-live"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Fraud Tracing",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/fraud-tracing"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Fraud Alert Triage",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/fraud-alert-triage-db"
+    }
+  ],
   "panels": [
     {
       "datasource": {
@@ -36,16 +73,20 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "yellow",
+                "value": 0.67
+              },
+              {
+                "color": "green",
                 "value": 1
               }
             ]
           },
-          "unit": "short"
+          "unit": "percentunit"
         },
         "overrides": []
       },
@@ -57,7 +98,7 @@
       },
       "id": 1,
       "options": {
-        "colorMode": "value",
+        "colorMode": "background",
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
@@ -77,13 +118,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(up{job=\"spring-services\"})",
-          "legendFormat": "Running instances",
+          "expr": "sum(up{job=\"spring-services\"}) / clamp_min(count(up{job=\"spring-services\"}), 1)",
+          "legendFormat": "Service availability",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Instances Up",
+      "title": "Service Availability",
       "type": "stat"
     },
     {
@@ -169,13 +210,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(http_server_requests_seconds_count{application=~\"$application\",uri!~\"/actuator.*\"}[1m])) by (application)",
-          "legendFormat": "{{application}}",
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"transaction-service\",uri=~\"/api/v1/transactions|/api/v1/webhooks/transactions\"}[$__rate_interval])) by (uri)",
+          "legendFormat": "{{uri}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "HTTP Throughput",
+      "title": "Transaction API Throughput",
       "type": "timeseries"
     },
     {
@@ -234,7 +275,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "1000 * (histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=~\"$application\",uri!~\"/actuator.*\"}[5m])) by (le)) or (sum(increase(http_server_requests_seconds_sum{application=~\"$application\",uri!~\"/actuator.*\"}[5m])) / clamp_min(sum(increase(http_server_requests_seconds_count{application=~\"$application\",uri!~\"/actuator.*\"}[5m])), 1)))",
+          "expr": "1000 * (histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=~\"$application\",uri!~\"/actuator.*\"}[$__rate_interval])) by (le)) or (sum(increase(http_server_requests_seconds_sum{application=~\"$application\",uri!~\"/actuator.*\"}[$__range])) / clamp_min(sum(increase(http_server_requests_seconds_count{application=~\"$application\",uri!~\"/actuator.*\"}[$__range])), 1)))",
           "legendFormat": "P95 latency (ms)",
           "range": true,
           "refId": "A"
@@ -418,13 +459,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(increase(http_server_requests_seconds_count{status=~\"5..\",application=~\"$application\",uri!~\"/actuator.*\"}[5m])) by (application)",
-          "legendFormat": "{{application}}",
+          "expr": "sum(increase(http_server_requests_seconds_count{status=~\"4..|5..\",application=\"transaction-service\",uri=~\"/api/v1/transactions|/api/v1/webhooks/transactions\"}[$__range])) by (status)",
+          "legendFormat": "HTTP {{status}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "HTTP 5xx (5m)",
+      "title": "Transaction Errors by Status (Selected Range)",
       "type": "timeseries"
     },
     {
@@ -486,6 +527,388 @@
         }
       ],
       "title": "Container Logs",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(fraud_decisions_total[$__rate_interval])) by (decision)",
+          "legendFormat": "{{decision}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Fraud Decisions Throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.2
+              },
+              {
+                "color": "red",
+                "value": 0.4
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "id": 9,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.1.4",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(increase(fraud_decisions_total{decision=\"fraud\"}[$__range])) / clamp_min(sum(increase(fraud_decisions_total[$__range])), 1)",
+          "legendFormat": "fraud rate",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Fraud Decision Rate (Selected Range)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(kafka_dlq_events_received_total[$__rate_interval])) by (application)",
+          "legendFormat": "{{application}} - received",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(kafka_dlq_events_reprocessed_total[$__rate_interval])) by (application)",
+          "legendFormat": "{{application}} - reprocessed",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(kafka_dlq_events_failed_total[$__rate_interval])) by (application)",
+          "legendFormat": "{{application}} - failed",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "DLQ Pipeline Health",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.02
+              },
+              {
+                "color": "red",
+                "value": 0.05
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 32
+      },
+      "id": 11,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(increase(kafka_dlq_events_failed_total[$__range])) / clamp_min(sum(increase(kafka_dlq_events_received_total[$__range])), 1)",
+          "legendFormat": "dlq failure ratio",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "DLQ Failure Ratio",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.01
+              },
+              {
+                "color": "red",
+                "value": 0.03
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 32
+      },
+      "id": 12,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(increase(http_server_requests_seconds_count{status=~\"4..|5..\",application=\"transaction-service\",uri=~\"/api/v1/transactions|/api/v1/webhooks/transactions\"}[$__range])) / clamp_min(sum(increase(http_server_requests_seconds_count{application=\"transaction-service\",uri=~\"/api/v1/transactions|/api/v1/webhooks/transactions\"}[$__range])), 1)",
+          "legendFormat": "transaction api error ratio",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Transaction API Error Ratio",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
+      "id": 13,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{compose_project=\"event-driven-fraud-detection\",service=~\"transaction-service|fraud-detection-service|alert-service\"} | json | event=~\".*failed|transaction_event_retry\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Technical Errors and Retries",
       "type": "logs"
     }
   ],
