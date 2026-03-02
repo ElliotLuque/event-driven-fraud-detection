@@ -12,8 +12,15 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.time.Duration;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static io.restassured.RestAssured.given;
 import static org.awaitility.Awaitility.await;
@@ -23,6 +30,8 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * End-to-end test that verifies the full pipeline:
@@ -53,6 +62,9 @@ class FullPipelineE2ETest {
 
     private static String transactionServiceUrl;
     private static String alertServiceUrl;
+
+    private record LoadResult(int statusCode, long latencyMs, boolean fraudulent, String userId) {
+    }
 
     @BeforeAll
     static void setUp() {
@@ -247,5 +259,132 @@ class FullPipelineE2ETest {
                 .post(transactionServiceUrl + "/api/v1/transactions")
         .then()
                 .statusCode(400);
+    }
+
+    @Test
+    @Order(6)
+    void mixedLoad_shouldKeepApiHealthyAndGenerateExpectedAlerts() throws Exception {
+        int totalRequests = 120;
+        int fraudulentRequests = 48;
+        int concurrency = 12;
+        String runId = "run" + System.currentTimeMillis();
+
+        int initialAlertCount =
+                given()
+                .when()
+                        .get(alertServiceUrl + "/api/v1/alerts")
+                .then()
+                        .statusCode(200)
+                .extract()
+                        .path("size()");
+
+        ExecutorService executor = Executors.newFixedThreadPool(concurrency);
+        List<CompletableFuture<LoadResult>> futures = new ArrayList<>();
+
+        for (int i = 0; i < totalRequests; i++) {
+            boolean fraudulent = i < fraudulentRequests;
+            String userId = "user-e2e-load-" + runId + "-" + i;
+            String path = i % 4 == 0 ? "/api/v1/webhooks/transactions" : "/api/v1/transactions";
+
+            Map<String, Object> payload = fraudulent
+                    ? Map.of(
+                    "userId", userId,
+                    "amount", 25000.00,
+                    "currency", "USD",
+                    "merchantId", "MRC-999",
+                    "country", "US",
+                    "paymentMethod", "CARD"
+            )
+                    : Map.of(
+                    "userId", userId,
+                    "amount", 15.00,
+                    "currency", "USD",
+                    "merchantId", "MRC-001",
+                    "country", "US",
+                    "paymentMethod", "TRANSFER"
+            );
+
+            futures.add(CompletableFuture.supplyAsync(() -> {
+                long start = System.nanoTime();
+                int statusCode =
+                        given()
+                                .contentType(ContentType.JSON)
+                                .body(payload)
+                        .when()
+                                .post(transactionServiceUrl + path)
+                        .then()
+                                .extract()
+                                .statusCode();
+                long latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+                return new LoadResult(statusCode, latencyMs, fraudulent, userId);
+            }, executor));
+        }
+
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get(90, TimeUnit.SECONDS);
+        executor.shutdown();
+
+        List<LoadResult> results = futures.stream().map(CompletableFuture::join).toList();
+        long failedRequests = results.stream().filter(result -> result.statusCode() != 201).count();
+        double errorRate = failedRequests / (double) totalRequests;
+        assertTrue(errorRate <= 0.02, "API error rate should stay below 2% under load");
+
+        List<Long> latencies = results.stream()
+                .map(LoadResult::latencyMs)
+                .sorted(Comparator.naturalOrder())
+                .toList();
+        int p95Index = (int) Math.ceil(latencies.size() * 0.95) - 1;
+        long p95LatencyMs = latencies.get(Math.max(0, p95Index));
+        assertTrue(p95LatencyMs < 2500, "P95 latency should stay below 2.5s under load");
+
+        await()
+                .atMost(Duration.ofSeconds(90))
+                .pollInterval(Duration.ofSeconds(3))
+                .untilAsserted(() -> {
+                    int currentAlertCount =
+                            given()
+                            .when()
+                                    .get(alertServiceUrl + "/api/v1/alerts")
+                            .then()
+                                    .statusCode(200)
+                            .extract()
+                                    .path("size()");
+                    assertTrue(currentAlertCount >= initialAlertCount + fraudulentRequests,
+                            "Fraud alerts should be generated for load scenario");
+                });
+
+        List<String> sampleFraudUsers = results.stream()
+                .filter(LoadResult::fraudulent)
+                .map(LoadResult::userId)
+                .limit(5)
+                .toList();
+
+        for (String userId : sampleFraudUsers) {
+            given()
+            .when()
+                    .get(alertServiceUrl + "/api/v1/alerts/users/" + userId)
+            .then()
+                    .statusCode(200)
+                    .body("size()", equalTo(1))
+                    .body("[0].userId", equalTo(userId))
+                    .body("[0].riskScore", greaterThanOrEqualTo(45));
+        }
+
+        List<String> sampleNormalUsers = results.stream()
+                .filter(result -> !result.fraudulent())
+                .map(LoadResult::userId)
+                .limit(5)
+                .toList();
+
+        for (String userId : sampleNormalUsers) {
+            int alerts =
+                    given()
+                    .when()
+                            .get(alertServiceUrl + "/api/v1/alerts/users/" + userId)
+                    .then()
+                            .statusCode(200)
+                    .extract()
+                            .path("size()");
+            assertEquals(0, alerts, "Normal traffic should not create alerts");
+        }
     }
 }
