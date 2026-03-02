@@ -14,6 +14,7 @@ public interface FraudDetectedEventMapper {
     @Mapping(target = "eventId", source = "eventId")
     @Mapping(target = "occurredAt", source = "occurredAt")
     @Mapping(target = "transactionId", source = "event.transactionId")
+    @Mapping(target = "traceId", source = "traceId")
     @Mapping(target = "userId", source = "event.userId")
     @Mapping(target = "riskScore", source = "evaluation.riskScore")
     @Mapping(target = "reasons", source = "evaluation.reasons")
@@ -23,6 +24,7 @@ public interface FraudDetectedEventMapper {
             FraudEvaluation evaluation,
             String eventId,
             Instant occurredAt,
+            String traceId,
             String ruleVersion
     );
 }

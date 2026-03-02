@@ -72,6 +72,7 @@ class FraudDetectionFlowIntegrationTest {
                 sourceEventId,
                 Instant.now(),
                 transactionId,
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "user-fraud-it",
                 new BigDecimal("15000.00"),
                 "USD",
@@ -90,6 +91,7 @@ class FraudDetectionFlowIntegrationTest {
             FraudDetectedEvent output = awaitEvent(consumer, transactionId, Duration.ofSeconds(25));
 
             assertEquals(transactionId, output.transactionId());
+            assertEquals(input.traceId(), output.traceId());
             assertTrue(output.riskScore() >= 45);
             assertTrue(output.reasons().contains("HIGH_AMOUNT"));
             assertTrue(processedEventRepository.existsById(sourceEventId));

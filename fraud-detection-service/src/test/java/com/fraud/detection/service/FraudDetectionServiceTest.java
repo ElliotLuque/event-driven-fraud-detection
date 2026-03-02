@@ -53,6 +53,9 @@ class FraudDetectionServiceTest {
     @Mock
     private FraudEventPublisher fraudEventPublisher;
 
+    @Mock
+    private FraudDetectionMetrics fraudDetectionMetrics;
+
     private FraudRulesProperties rules;
     private FraudDetectionService fraudDetectionService;
     private UserTransactionHistoryMapper userTransactionHistoryMapper;
@@ -71,7 +74,8 @@ class FraudDetectionServiceTest {
                 fraudEventPublisher,
                 rules,
                 userTransactionHistoryMapper,
-                fraudDetectedEventMapper
+                fraudDetectedEventMapper,
+                fraudDetectionMetrics
         );
     }
 
@@ -152,6 +156,7 @@ class FraudDetectionServiceTest {
         assertFalse(processedEvent.getProcessedAt().isAfter(after));
 
         assertEquals(event.transactionId(), fraudEvent.transactionId());
+        assertEquals(event.traceId(), fraudEvent.traceId());
         assertEquals(event.userId(), fraudEvent.userId());
         assertEquals(80, fraudEvent.riskScore());
         assertEquals(List.of("HIGH_AMOUNT", "HIGH_RISK_MERCHANT"), fraudEvent.reasons());
@@ -164,6 +169,7 @@ class FraudDetectionServiceTest {
                 eventId,
                 occurredAt,
                 "tx-1",
+                "0123456789abcdef0123456789abcdef",
                 "user-1",
                 new BigDecimal("250.00"),
                 "USD",
