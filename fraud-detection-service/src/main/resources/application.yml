@@ -37,7 +37,7 @@ spring:
     listener:
       ack-mode: record
       missing-topics-fatal: false
-      concurrency: 2
+      concurrency: 6
       observation-enabled: true
     admin:
       auto-create: true

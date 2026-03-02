@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.KafkaException;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
@@ -25,20 +26,25 @@ public class KafkaErrorHandlerConfig {
                 (record, exception) -> new TopicPartition(record.topic() + ".dlq", record.partition())
         );
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 3L));
+        errorHandler.setLogLevel(KafkaException.Level.DEBUG);
         errorHandler.setRetryListeners((record, ex, deliveryAttempt) ->
-                log.warn("transaction_event_retry",
-                        kv("event", "transaction_event_retry"),
-                        kv("outcome", "retry"),
-                        kv("topic", record.topic()),
-                        kv("partition", record.partition()),
-                        kv("offset", record.offset()),
-                        kv("traceId", extractTraceId(record.value())),
-                        kv("eventId", extractEventId(record.value())),
-                        kv("transactionId", extractTransactionId(record.value())),
-                        kv("delivery_attempt", deliveryAttempt),
-                        kv("error_class", ex.getClass().getSimpleName()),
-                        kv("error_message", ex.getMessage())
-                )
+                {
+                    if (deliveryAttempt <= 1) {
+                        log.warn("transaction_event_retry",
+                                kv("event", "transaction_event_retry"),
+                                kv("outcome", "retry"),
+                                kv("topic", record.topic()),
+                                kv("partition", record.partition()),
+                                kv("offset", record.offset()),
+                                kv("traceId", extractTraceId(record.value())),
+                                kv("eventId", extractEventId(record.value())),
+                                kv("transactionId", extractTransactionId(record.value())),
+                                kv("delivery_attempt", deliveryAttempt),
+                                kv("error_class", ex.getClass().getSimpleName()),
+                                kv("error_message", ex.getMessage())
+                        );
+                    }
+                }
         );
         return errorHandler;
     }

@@ -31,10 +31,13 @@ datasources:
         datasourceUid: loki
         spanStartTimeShift: '-5m'
         spanEndTimeShift: '5m'
+        tags:
+          - key: 'service.name'
+            value: 'service'
         filterByTraceID: false
         filterBySpanID: false
         customQuery: true
-        query: '{compose_project="event-driven-fraud-detection"} |= "$${__trace.traceId}"'
+        query: '{compose_project="event-driven-fraud-detection",$${__tags}} | json | traceId="$${__trace.traceId}"'
       tracesToMetrics:
         datasourceUid: prometheus
       serviceMap:

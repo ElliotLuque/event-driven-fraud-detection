@@ -105,6 +105,12 @@ services:
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
+    logging:
+      driver: json-file
+      options:
+        mode: blocking
+        max-size: "50m"
+        max-file: "4"
 
   fraud-detection-service:
     build:
@@ -124,6 +130,12 @@ services:
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
+    logging:
+      driver: json-file
+      options:
+        mode: blocking
+        max-size: "50m"
+        max-file: "4"
 
   mailhog:
     image: mailhog/mailhog:v1.0.1
@@ -154,9 +166,15 @@ services:
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
       SPRING_MAIL_HOST: mailhog
       SPRING_MAIL_PORT: 1025
-      APP_NOTIFICATION_EMAIL_ENABLED: true
+      APP_NOTIFICATION_EMAIL_ENABLED: ${APP_NOTIFICATION_EMAIL_ENABLED:-true}
       APP_NOTIFICATION_EMAIL_FROM: fraud-alerts@fraud-detection.local
       APP_NOTIFICATION_EMAIL_TO: security-team@fraud-detection.local
+    logging:
+      driver: json-file
+      options:
+        mode: blocking
+        max-size: "50m"
+        max-file: "4"
 
   prometheus:
     image: prom/prometheus:v2.54.1
@@ -194,6 +212,7 @@ services:
     volumes:
       - ./observability/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - promtail-data:/var/lib/promtail
 
   tempo:
     image: grafana/tempo:2.5.0
@@ -226,5 +245,6 @@ services:
 
 volumes:
   loki-data:
+  promtail-data:
   grafana-data:
   tempo-data:

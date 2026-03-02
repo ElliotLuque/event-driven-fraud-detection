@@ -174,7 +174,7 @@ public class FraudDetectionService {
                     kv("transactionId", fraudDetectedEvent.transactionId()),
                     kv("error_code", "KAFKA_PUBLISH_FAILED"),
                     kv("error_class", ex.getClass().getSimpleName()),
-                    ex
+                    kv("error_message", ex.getMessage())
             );
             throw ex;
         }
