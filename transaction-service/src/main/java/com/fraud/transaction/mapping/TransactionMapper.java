@@ -26,7 +26,8 @@ public interface TransactionMapper {
     @Mapping(target = "eventId", source = "eventId")
     @Mapping(target = "occurredAt", source = "occurredAt")
     @Mapping(target = "transactionId", source = "transaction.id")
-    TransactionCreatedEvent toCreatedEvent(Transaction transaction, String eventId, Instant occurredAt);
+    @Mapping(target = "traceId", source = "traceId")
+    TransactionCreatedEvent toCreatedEvent(Transaction transaction, String eventId, Instant occurredAt, String traceId);
 
     @Named("normalizeCurrency")
     default String normalizeCurrency(String currency) {

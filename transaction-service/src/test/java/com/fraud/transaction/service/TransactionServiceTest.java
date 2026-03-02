@@ -32,6 +32,9 @@ class TransactionServiceTest {
     @Mock
     private TransactionEventPublisher transactionEventPublisher;
 
+    @Mock
+    private TransactionMetrics transactionMetrics;
+
     @Spy
     private TransactionMapper transactionMapper = Mappers.getMapper(TransactionMapper.class);
 

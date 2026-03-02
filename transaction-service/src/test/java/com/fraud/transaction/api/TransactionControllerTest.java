@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -56,7 +57,7 @@ class TransactionControllerTest {
                 Instant.parse("2026-01-01T10:00:00Z")
         );
 
-        when(transactionService.createTransaction(any(TransactionRequest.class))).thenReturn(response);
+        when(transactionService.createTransaction(any(TransactionRequest.class), eq("api"))).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/transactions")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -68,7 +69,7 @@ class TransactionControllerTest {
                 .andExpect(jsonPath("$.country").value("US"))
                 .andExpect(jsonPath("$.paymentMethod").value("CARD"));
 
-        verify(transactionService).createTransaction(any(TransactionRequest.class));
+        verify(transactionService).createTransaction(any(TransactionRequest.class), eq("api"));
     }
 
     @Test
@@ -93,7 +94,7 @@ class TransactionControllerTest {
                 Instant.parse("2026-01-01T10:00:00Z")
         );
 
-        when(transactionService.createTransaction(any(TransactionRequest.class))).thenReturn(response);
+        when(transactionService.createTransaction(any(TransactionRequest.class), eq("webhook"))).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/webhooks/transactions")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -102,7 +103,7 @@ class TransactionControllerTest {
                 .andExpect(jsonPath("$.transactionId").value("tx-webhook"))
                 .andExpect(jsonPath("$.userId").value("user-webhook"));
 
-        verify(transactionService).createTransaction(any(TransactionRequest.class));
+        verify(transactionService).createTransaction(any(TransactionRequest.class), eq("webhook"));
     }
 
     @Test

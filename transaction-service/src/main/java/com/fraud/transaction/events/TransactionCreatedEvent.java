@@ -9,6 +9,7 @@ public record TransactionCreatedEvent(
         String eventId,
         Instant occurredAt,
         String transactionId,
+        String traceId,
         String userId,
         BigDecimal amount,
         String currency,

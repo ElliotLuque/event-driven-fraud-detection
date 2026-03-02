@@ -22,12 +22,12 @@ public class TransactionController {
     @PostMapping("/transactions")
     @ResponseStatus(HttpStatus.CREATED)
     public TransactionResponse createTransaction(@RequestBody @Valid TransactionRequest request) {
-        return transactionService.createTransaction(request);
+        return transactionService.createTransaction(request, "api");
     }
 
     @PostMapping("/webhooks/transactions")
     @ResponseStatus(HttpStatus.CREATED)
     public TransactionResponse createTransactionFromWebhook(@RequestBody @Valid TransactionRequest request) {
-        return transactionService.createTransaction(request);
+        return transactionService.createTransaction(request, "webhook");
     }
 }
