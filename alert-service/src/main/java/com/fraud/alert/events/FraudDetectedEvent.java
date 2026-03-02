@@ -7,6 +7,7 @@ public record FraudDetectedEvent(
         String eventId,
         Instant occurredAt,
         String transactionId,
+        String traceId,
         String userId,
         int riskScore,
         List<String> reasons,

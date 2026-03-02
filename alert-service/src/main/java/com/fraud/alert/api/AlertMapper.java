@@ -1,21 +1,32 @@
 package com.fraud.alert.api;
 
 import com.fraud.alert.model.Alert;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.Named;
+import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
 import java.util.List;
 
-@Mapper(componentModel = "spring")
-public interface AlertMapper {
+@Component
+public class AlertMapper {
 
-    @Mapping(target = "reasons", source = "reasons", qualifiedByName = "splitReasons")
-    AlertResponse toResponse(Alert alert);
+    public AlertResponse toResponse(Alert alert) {
+        if (alert == null) {
+            return null;
+        }
 
-    @Named("splitReasons")
-    default List<String> splitReasons(String reasons) {
+        return new AlertResponse(
+                alert.getId(),
+                alert.getTransactionId(),
+                alert.getUserId(),
+                alert.getRiskScore(),
+                splitReasons(alert.getReasons()),
+                alert.getCreatedAt(),
+                alert.getSourceEventId(),
+                alert.getTraceId()
+        );
+    }
+
+    List<String> splitReasons(String reasons) {
         if (reasons == null || reasons.isBlank()) {
             return List.of();
         }

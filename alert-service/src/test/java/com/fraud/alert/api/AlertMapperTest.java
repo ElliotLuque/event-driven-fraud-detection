@@ -2,17 +2,17 @@ package com.fraud.alert.api;
 
 import com.fraud.alert.model.Alert;
 import org.junit.jupiter.api.Test;
-import org.mapstruct.factory.Mappers;
 
 import java.time.Instant;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AlertMapperTest {
 
-    private final AlertMapper mapper = Mappers.getMapper(AlertMapper.class);
+    private final AlertMapper mapper = new AlertMapper();
 
     @Test
     void toResponseShouldSplitCommaSeparatedReasons() {
@@ -32,6 +32,8 @@ class AlertMapperTest {
         assertEquals("user-1", response.userId());
         assertEquals(90, response.riskScore());
         assertEquals(List.of("HIGH_AMOUNT", "HIGH_VELOCITY"), response.reasons());
+        assertEquals("unknown", response.sourceEventId());
+        assertNull(response.traceId());
     }
 
     @Test

@@ -13,7 +13,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mapstruct.factory.Mappers;
 
 import java.time.Instant;
 import java.util.List;
@@ -37,7 +36,7 @@ class AlertProcessingServiceTest {
     private AlertRepository alertRepository;
 
     @Spy
-    private AlertEventMapper alertEventMapper = Mappers.getMapper(AlertEventMapper.class);
+    private AlertEventMapper alertEventMapper = new AlertEventMapper();
 
     @Mock
     private NotificationGateway notificationGateway;
@@ -81,6 +80,7 @@ class AlertProcessingServiceTest {
 
         assertNotNull(storedAlert.getId());
         assertEquals("tx-1", storedAlert.getTransactionId());
+        assertEquals("abcdefabcdefabcdefabcdefabcdefab", storedAlert.getTraceId());
         assertEquals("user-1", storedAlert.getUserId());
         assertEquals(85, storedAlert.getRiskScore());
         assertEquals("HIGH_AMOUNT,HIGH_RISK_MERCHANT", storedAlert.getReasons());
@@ -107,6 +107,7 @@ class AlertProcessingServiceTest {
                 eventId,
                 Instant.parse("2026-01-01T10:00:00Z"),
                 "tx-1",
+                "abcdefabcdefabcdefabcdefabcdefab",
                 "user-1",
                 85,
                 reasons,

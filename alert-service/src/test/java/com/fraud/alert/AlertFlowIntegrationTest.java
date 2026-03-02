@@ -67,6 +67,7 @@ class AlertFlowIntegrationTest {
                 eventId,
                 Instant.now(),
                 transactionId,
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                 "user-alert-it",
                 80,
                 List.of("HIGH_AMOUNT", "HIGH_RISK_MERCHANT"),
@@ -81,6 +82,7 @@ class AlertFlowIntegrationTest {
         Alert alert = awaitAlert(transactionId, Duration.ofSeconds(25));
 
         assertEquals("user-alert-it", alert.getUserId());
+        assertEquals(event.traceId(), alert.getTraceId());
         assertEquals(80, alert.getRiskScore());
         assertTrue(alert.getReasons().contains("HIGH_AMOUNT"));
         assertTrue(processedEventRepository.existsById(eventId));

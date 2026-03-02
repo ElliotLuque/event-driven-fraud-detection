@@ -54,7 +54,9 @@ class AlertControllerTest {
                 "user-2",
                 70,
                 List.of("HIGH_AMOUNT"),
-                Instant.parse("2026-01-01T10:02:00Z")
+                Instant.parse("2026-01-01T10:02:00Z"),
+                "evt-2",
+                "trace-2"
         );
         AlertResponse secondResponse = new AlertResponse(
                 "a-1",
@@ -62,7 +64,9 @@ class AlertControllerTest {
                 "user-1",
                 55,
                 List.of("HIGH_VELOCITY"),
-                Instant.parse("2026-01-01T10:01:00Z")
+                Instant.parse("2026-01-01T10:01:00Z"),
+                "evt-1",
+                "trace-1"
         );
 
         when(alertRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(first, second));
@@ -97,7 +101,9 @@ class AlertControllerTest {
                 "user-42",
                 88,
                 List.of("HIGH_AMOUNT", "HIGH_RISK_MERCHANT"),
-                Instant.parse("2026-01-01T10:03:00Z")
+                Instant.parse("2026-01-01T10:03:00Z"),
+                "evt-3",
+                "trace-3"
         );
 
         when(alertRepository.findByUserIdOrderByCreatedAtDesc("user-42")).thenReturn(List.of(userAlert));

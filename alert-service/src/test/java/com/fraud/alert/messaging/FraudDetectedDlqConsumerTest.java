@@ -64,6 +64,7 @@ class FraudDetectedDlqConsumerTest {
                 "evt-1",
                 Instant.parse("2026-01-01T10:00:00Z"),
                 "tx-1",
+                null,
                 "user-1",
                 90,
                 List.of("HIGH_AMOUNT"),

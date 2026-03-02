@@ -9,6 +9,8 @@ public record AlertResponse(
         String userId,
         int riskScore,
         List<String> reasons,
-        Instant createdAt
+        Instant createdAt,
+        String sourceEventId,
+        String traceId
 ) {
 }
