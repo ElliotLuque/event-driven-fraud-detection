@@ -43,6 +43,6 @@ public class NotificationConfig {
             log.warn("Email notification enabled but no recipients configured (app.notification.email.to). Skipping.");
             return new LogNotificationChannel();
         }
-        return new EmailNotificationChannel(mailSender, email.from(), email.to());
+        return new EmailNotificationChannel(mailSender, email.from(), email.to(), email.minRiskScore());
     }
 }

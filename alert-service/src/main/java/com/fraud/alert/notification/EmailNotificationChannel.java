@@ -25,15 +25,22 @@ public class EmailNotificationChannel implements NotificationChannel {
     private final JavaMailSender mailSender;
     private final String from;
     private final List<String> to;
+    private final int minRiskScore;
 
-    public EmailNotificationChannel(JavaMailSender mailSender, String from, List<String> to) {
+    public EmailNotificationChannel(JavaMailSender mailSender, String from, List<String> to, int minRiskScore) {
         this.mailSender = mailSender;
         this.from = from;
         this.to = to;
+        this.minRiskScore = minRiskScore;
     }
 
     @Override
     public void send(Alert alert) {
+        if (alert.getRiskScore() < minRiskScore) {
+            log.debug("Skipping email for alert {} (riskScore={} < threshold={})",
+                    alert.getId(), alert.getRiskScore(), minRiskScore);
+            return;
+        }
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
