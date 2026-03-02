@@ -76,7 +76,6 @@ app:
       enabled: ${APP_NOTIFICATION_EMAIL_ENABLED:false}
       from: ${APP_NOTIFICATION_EMAIL_FROM:fraud-alerts@fraud-detection.local}
       to: ${APP_NOTIFICATION_EMAIL_TO:}
-      min-risk-score: ${APP_NOTIFICATION_EMAIL_MIN_RISK_SCORE:75}
   data-retention:
     processed-event-ttl: PT1H
     cleanup-interval: 300000

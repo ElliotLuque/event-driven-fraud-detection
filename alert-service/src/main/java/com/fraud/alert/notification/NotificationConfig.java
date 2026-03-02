@@ -1,6 +1,7 @@
 package com.fraud.alert.notification;
 
 import com.fraud.alert.service.NotificationGateway;
+import com.fraud.alert.service.AlertMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -20,10 +21,10 @@ public class NotificationConfig {
 
     @Bean
     public NotificationGateway notificationGateway(
-            NotificationProperties props,
-            List<NotificationChannel> channels
+            List<NotificationChannel> channels,
+            AlertMetrics alertMetrics
     ) {
-        return new CompositeNotificationGateway(channels);
+        return new CompositeNotificationGateway(channels, alertMetrics);
     }
 
     @Bean
@@ -43,6 +44,6 @@ public class NotificationConfig {
             log.warn("Email notification enabled but no recipients configured (app.notification.email.to). Skipping.");
             return new LogNotificationChannel();
         }
-        return new EmailNotificationChannel(mailSender, email.from(), email.to(), email.minRiskScore());
+        return new EmailNotificationChannel(mailSender, email.from(), email.to());
     }
 }

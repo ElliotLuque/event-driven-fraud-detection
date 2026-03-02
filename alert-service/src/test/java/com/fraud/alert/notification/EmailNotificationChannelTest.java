@@ -16,7 +16,6 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -45,8 +44,7 @@ class EmailNotificationChannelTest {
         channel = new EmailNotificationChannel(
                 mailSender,
                 "fraud@test.com",
-                List.of("security@test.com", "ops@test.com"),
-                75
+                List.of("security@test.com", "ops@test.com")
         );
     }
 
@@ -62,10 +60,13 @@ class EmailNotificationChannelTest {
     }
 
     @Test
-    void shouldSkipEmailWhenRiskScoreBelowThreshold() {
+    void shouldSendEmailForAnyFraudAlert() throws Exception {
+        MimeMessage mimeMessage = mock(MimeMessage.class);
+        when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
+
         channel.send(lowRiskAlert);
 
-        verify(mailSender, never()).createMimeMessage();
+        verify(mailSender).send(mimeMessage);
     }
 
     @Test

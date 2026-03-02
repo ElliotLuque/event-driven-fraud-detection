@@ -26,8 +26,11 @@ class AlertMetricsTest {
         );
 
         alertMetrics.recordAlertCreated(alert);
+        alertMetrics.recordNotification("email", "success", 120);
 
         assertEquals(1.0, meterRegistry.counter("fraud_alerts").count(), 0.00001);
+        assertEquals(1.0, meterRegistry.counter("fraud_alerts_by_severity", "severity", "high").count(), 0.00001);
+        assertEquals(1.0, meterRegistry.counter("fraud_alert_notifications", "channel", "email", "outcome", "success").count(), 0.00001);
 
         DistributionSummary summary = meterRegistry.find("fraud_alert_risk_score").summary();
         assertEquals(1L, summary.count());

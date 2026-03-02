@@ -12,6 +12,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 /**
  * Notification channel that sends fraud alerts via email using SMTP.
  */
@@ -25,22 +27,15 @@ public class EmailNotificationChannel implements NotificationChannel {
     private final JavaMailSender mailSender;
     private final String from;
     private final List<String> to;
-    private final int minRiskScore;
 
-    public EmailNotificationChannel(JavaMailSender mailSender, String from, List<String> to, int minRiskScore) {
+    public EmailNotificationChannel(JavaMailSender mailSender, String from, List<String> to) {
         this.mailSender = mailSender;
         this.from = from;
         this.to = to;
-        this.minRiskScore = minRiskScore;
     }
 
     @Override
     public void send(Alert alert) {
-        if (alert.getRiskScore() < minRiskScore) {
-            log.debug("Skipping email for alert {} (riskScore={} < threshold={})",
-                    alert.getId(), alert.getRiskScore(), minRiskScore);
-            return;
-        }
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -51,9 +46,25 @@ public class EmailNotificationChannel implements NotificationChannel {
             helper.setText(buildHtmlBody(alert), true);
 
             mailSender.send(message);
-            log.info("Email notification sent for alert {} to {}", alert.getId(), to);
+            log.info("email_notification_sent",
+                    kv("event", "email_notification_sent"),
+                    kv("outcome", "success"),
+                    kv("channel", "email"),
+                    kv("alertId", alert.getId()),
+                    kv("transactionId", alert.getTransactionId()),
+                    kv("recipient_count", to.size())
+            );
         } catch (Exception ex) {
-            log.error("Failed to send email notification for alert {}: {}", alert.getId(), ex.getMessage(), ex);
+            log.error("email_notification_failed",
+                    kv("event", "email_notification_failed"),
+                    kv("outcome", "failed"),
+                    kv("channel", "email"),
+                    kv("alertId", alert.getId()),
+                    kv("transactionId", alert.getTransactionId()),
+                    kv("error_code", "EMAIL_SEND_FAILED"),
+                    kv("error_class", ex.getClass().getSimpleName()),
+                    ex
+            );
         }
     }
 

@@ -11,15 +11,14 @@ public record NotificationProperties(
 ) {
     public NotificationProperties {
         if (email == null) {
-            email = new EmailProperties(false, null, List.of(), 75);
+            email = new EmailProperties(false, null, List.of());
         }
     }
 
     public record EmailProperties(
             boolean enabled,
             String from,
-            List<String> to,
-            int minRiskScore
+            List<String> to
     ) {
         public EmailProperties {
             if (to == null) to = List.of();
