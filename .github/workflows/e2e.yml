@@ -25,17 +25,27 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Install docker-compose compatibility shim
+      - name: Install docker-compose (compose-switch)
         run: |
-          printf '#!/bin/sh\nexec docker compose "$@"\n' | sudo tee /usr/local/bin/docker-compose > /dev/null
+          COMPOSE_SWITCH_VERSION=v1.0.5
+          sudo curl -fL "https://github.com/docker/compose-switch/releases/download/${COMPOSE_SWITCH_VERSION}/docker-compose-linux-amd64" \
+            -o /usr/local/bin/docker-compose
           sudo chmod +x /usr/local/bin/docker-compose
           docker-compose version
+
+      - name: Pre-pull Testcontainers images
+        run: |
+          docker pull alpine/socat:1.7.4.3-r0 &
+          docker pull testcontainers/ryuk:0.7.0 &
+          wait
 
       - name: Package all services (skip tests)
         run: mvn -B package -DskipTests -pl transaction-service,fraud-detection-service,alert-service
 
       - name: Run E2E tests
         run: mvn -B verify -pl e2e-tests
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: true
         timeout-minutes: 15
 
       - name: Upload test reports
