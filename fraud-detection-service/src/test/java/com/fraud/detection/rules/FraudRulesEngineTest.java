@@ -32,7 +32,7 @@ class FraudRulesEngineTest {
     }
 
     @Test
-    void velocityAndCountryChangeShouldIncreaseRiskScore() {
+    void velocityAndCountryChangeShouldStayCleanBelowThreshold() {
         FraudRulesEngine engine = new FraudRulesEngine(defaultRules());
         Instant now = Instant.now();
 
@@ -50,7 +50,7 @@ class FraudRulesEngineTest {
 
         FraudEvaluation evaluation = engine.evaluate(event, Optional.of(last), 4, now);
 
-        assertTrue(evaluation.fraudulent());
+        assertFalse(evaluation.fraudulent());
         assertTrue(evaluation.reasons().contains("HIGH_VELOCITY"));
         assertTrue(evaluation.reasons().contains("COUNTRY_CHANGE_IN_SHORT_WINDOW"));
         assertEquals(65, evaluation.riskScore());
@@ -74,6 +74,7 @@ class FraudRulesEngineTest {
         properties.setVelocityMaxTransactions(5);
         properties.setVelocityWindow(Duration.ofMinutes(1));
         properties.setCountryChangeWindow(Duration.ofMinutes(30));
+        properties.setFraudScoreThreshold(70);
         properties.setHighRiskMerchants(List.of("MRC-999", "MRC-666"));
         return properties;
     }
@@ -83,6 +84,7 @@ class FraudRulesEngineTest {
                 "event-1",
                 Instant.now(),
                 "tx-1",
+                null,
                 "user-1",
                 new BigDecimal(amount),
                 "USD",

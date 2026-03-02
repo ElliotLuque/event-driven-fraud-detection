@@ -14,6 +14,7 @@ public class FraudRulesProperties {
     private int velocityMaxTransactions = 5;
     private Duration velocityWindow = Duration.ofMinutes(1);
     private Duration countryChangeWindow = Duration.ofMinutes(30);
+    private int fraudScoreThreshold = 70;
     private List<String> highRiskMerchants = new ArrayList<>();
 
     public BigDecimal getHighAmountThreshold() {
@@ -54,5 +55,13 @@ public class FraudRulesProperties {
 
     public void setHighRiskMerchants(List<String> highRiskMerchants) {
         this.highRiskMerchants = highRiskMerchants;
+    }
+
+    public int getFraudScoreThreshold() {
+        return fraudScoreThreshold;
+    }
+
+    public void setFraudScoreThreshold(int fraudScoreThreshold) {
+        this.fraudScoreThreshold = fraudScoreThreshold;
     }
 }

@@ -49,7 +49,9 @@ public class FraudRulesEngine {
             score += 25;
         }
 
-        return new FraudEvaluation(!reasons.isEmpty(), Math.min(100, score), List.copyOf(reasons));
+        int cappedScore = Math.min(100, score);
+        boolean fraudulent = cappedScore >= rules.getFraudScoreThreshold();
+        return new FraudEvaluation(fraudulent, cappedScore, List.copyOf(reasons));
     }
 
     private boolean isCountryChangeSuspicious(
