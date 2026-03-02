@@ -4,14 +4,14 @@ import { Counter } from 'k6/metrics';
 
 const baseUrl = __ENV.TRANSACTION_API_BASE || 'http://localhost:8080';
 const testType = (__ENV.TEST_TYPE || 'stress').toLowerCase();
-const profileName = __ENV.TEST_PROFILE || 'balanced';
+const profileName = __ENV.TEST_PROFILE || 'capacity-baseline';
 const requestTimeout = __ENV.REQUEST_TIMEOUT || '4s';
 const webhookRatio = Number(__ENV.WEBHOOK_RATIO || 35);
 
-const normalWeight = Number(__ENV.NORMAL_WEIGHT || 45);
-const fraudWeight = Number(__ENV.FRAUD_WEIGHT || 40);
-const velocityWeight = Number(__ENV.VELOCITY_WEIGHT || 10);
-const invalidWeight = Number(__ENV.INVALID_WEIGHT || 5);
+const normalWeight = Number(__ENV.NORMAL_WEIGHT || 80);
+const fraudWeight = Number(__ENV.FRAUD_WEIGHT || 12);
+const velocityWeight = Number(__ENV.VELOCITY_WEIGHT || 5);
+const invalidWeight = Number(__ENV.INVALID_WEIGHT || 3);
 const error5xxWeight = Number(__ENV.ERROR5XX_WEIGHT || 0);
 
 const weightTotal =
@@ -21,7 +21,7 @@ if (weightTotal !== 100) {
 }
 
 const users = Number(__ENV.USERS || 600);
-const targetRps = Number(__ENV.STRESS_RPS || 700);
+const targetRps = Number(__ENV.STRESS_RPS || 250);
 const steadyDuration = __ENV.STRESS_DURATION || '4m';
 const preAllocatedVUs = Number(__ENV.PREALLOCATED_VUS || 350);
 const maxVUs = Number(__ENV.MAX_VUS || 2500);

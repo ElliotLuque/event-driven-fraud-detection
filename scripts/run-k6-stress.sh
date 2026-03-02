@@ -112,17 +112,27 @@ choose_payload_profile() {
   while true; do
     echo
     echo "Perfil de trafico:"
-    echo "  1) balanced      - 45/40/10/5/0"
-    echo "  2) mostly-normal - 75/15/7/3/0"
-    echo "  3) fraud-focus   - 20/65/10/5/0"
-    echo "  4) validation    - 20/20/10/50/0"
-    echo "  5) chaos-5xx     - 30/25/10/5/30"
-    echo "  6) custom        - definir manualmente"
+    echo "  1) capacity-baseline - 80/12/5/3/0 (recomendado para throughput)"
+    echo "  2) balanced          - 45/40/10/5/0"
+    echo "  3) mostly-normal     - 75/15/7/3/0"
+    echo "  4) fraud-focus       - 20/65/10/5/0"
+    echo "  5) validation        - 20/20/10/50/0"
+    echo "  6) chaos-5xx         - 30/25/10/5/30"
+    echo "  7) custom            - definir manualmente"
     echo "     (normal/fraude/velocity/invalid/5xx)"
     read -r -p "Seleccion [1]: " input
 
     case "${input:-1}" in
       1)
+        TEST_PROFILE="capacity-baseline"
+        NORMAL_WEIGHT=80
+        FRAUD_WEIGHT=12
+        VELOCITY_WEIGHT=5
+        INVALID_WEIGHT=3
+        ERROR5XX_WEIGHT=0
+        return
+        ;;
+      2)
         TEST_PROFILE="balanced"
         NORMAL_WEIGHT=45
         FRAUD_WEIGHT=40
@@ -131,7 +141,7 @@ choose_payload_profile() {
         ERROR5XX_WEIGHT=0
         return
         ;;
-      2)
+      3)
         TEST_PROFILE="mostly-normal"
         NORMAL_WEIGHT=75
         FRAUD_WEIGHT=15
@@ -140,7 +150,7 @@ choose_payload_profile() {
         ERROR5XX_WEIGHT=0
         return
         ;;
-      3)
+      4)
         TEST_PROFILE="fraud-focus"
         NORMAL_WEIGHT=20
         FRAUD_WEIGHT=65
@@ -149,7 +159,7 @@ choose_payload_profile() {
         ERROR5XX_WEIGHT=0
         return
         ;;
-      4)
+      5)
         TEST_PROFILE="validation"
         NORMAL_WEIGHT=20
         FRAUD_WEIGHT=20
@@ -158,7 +168,7 @@ choose_payload_profile() {
         ERROR5XX_WEIGHT=0
         return
         ;;
-      5)
+      6)
         TEST_PROFILE="chaos-5xx"
         NORMAL_WEIGHT=30
         FRAUD_WEIGHT=25
@@ -167,7 +177,7 @@ choose_payload_profile() {
         ERROR5XX_WEIGHT=30
         return
         ;;
-      6)
+      7)
         TEST_PROFILE="custom"
         while true; do
           ask_integer NORMAL_WEIGHT "Peso normal" "${NORMAL_WEIGHT}" 0 100
@@ -184,7 +194,7 @@ choose_payload_profile() {
         done
         ;;
       *)
-        echo "Opcion invalida. Elige 1, 2, 3, 4, 5 o 6."
+        echo "Opcion invalida. Elige 1, 2, 3, 4, 5, 6 o 7."
         ;;
     esac
   done
@@ -214,7 +224,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 export TRANSACTION_API_BASE="${TRANSACTION_API_BASE:-http://localhost:8080}"
-export STRESS_RPS="${STRESS_RPS:-700}"
+export STRESS_RPS="${STRESS_RPS:-250}"
 export STRESS_DURATION="${STRESS_DURATION:-4m}"
 export PREALLOCATED_VUS="${PREALLOCATED_VUS:-350}"
 export MAX_VUS="${MAX_VUS:-2500}"
@@ -222,12 +232,12 @@ export USERS="${USERS:-600}"
 export WEBHOOK_RATIO="${WEBHOOK_RATIO:-35}"
 export REQUEST_TIMEOUT="${REQUEST_TIMEOUT:-4s}"
 export TEST_TYPE="${TEST_TYPE:-stress}"
-export TEST_PROFILE="${TEST_PROFILE:-balanced}"
+export TEST_PROFILE="${TEST_PROFILE:-capacity-baseline}"
 
-export NORMAL_WEIGHT="${NORMAL_WEIGHT:-45}"
-export FRAUD_WEIGHT="${FRAUD_WEIGHT:-40}"
-export VELOCITY_WEIGHT="${VELOCITY_WEIGHT:-10}"
-export INVALID_WEIGHT="${INVALID_WEIGHT:-5}"
+export NORMAL_WEIGHT="${NORMAL_WEIGHT:-80}"
+export FRAUD_WEIGHT="${FRAUD_WEIGHT:-12}"
+export VELOCITY_WEIGHT="${VELOCITY_WEIGHT:-5}"
+export INVALID_WEIGHT="${INVALID_WEIGHT:-3}"
 export ERROR5XX_WEIGHT="${ERROR5XX_WEIGHT:-0}"
 
 should_prompt=0

@@ -273,6 +273,9 @@ bash scripts/single-fraud-scenario.sh
 # Stress test con k6 (modo interactivo si hay TTY)
 bash scripts/run-k6-stress.sh
 
+# Prueba determinística de ambas DLQ (fraud + alert)
+bash scripts/test-dlq.sh
+
 # Stress test no interactivo con parámetros
 STRESS_RPS=900 STRESS_DURATION=3m PREALLOCATED_VUS=400 MAX_VUS=3000 \
   bash scripts/run-k6-stress.sh --non-interactive
@@ -342,3 +345,4 @@ SPRING_PROFILES_ACTIVE=dev mvn -pl transaction-service spring-boot:run
 - **Tests de integración fallan:** confirma que Docker tiene memoria suficiente
 - **Email no llega:** revisa MailHog en http://localhost:8025
 - **Traces no aparecen:** verifica que Tempo esté healthy y `MANAGEMENT_OTLP_TRACING_ENDPOINT` apunte a `http://tempo:4318/v1/traces`
+- **Logs faltantes en Loki bajo carga:** reinicia `loki` y `promtail` tras cambios de configuración (`docker compose up -d --force-recreate loki promtail`) para aplicar límites de ingesta y persistencia de offsets de Promtail.
