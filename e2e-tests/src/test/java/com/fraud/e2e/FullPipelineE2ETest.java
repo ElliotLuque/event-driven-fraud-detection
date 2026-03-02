@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.testcontainers.containers.ComposeContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -40,7 +39,7 @@ class FullPipelineE2ETest {
 
     @Container
     static final ComposeContainer ENV = new ComposeContainer(
-            DockerImageName.parse("docker:24.0.2"),
+            "docker:24.0.2",
             new File("docker-compose-e2e.yml"))
             .withExposedService("transaction-service-1", 8080,
                     Wait.forHttp("/actuator/health").forStatusCode(200)
