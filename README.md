@@ -23,7 +23,7 @@ Kafka topic: fraud.detected
 Alert Service --> PostgreSQL (alerts + idempotency)
       |
       v
-Notification Channels (Log + Email via SMTP)
+Canales de notificación (Log + Email vía SMTP)
 ```
 
 ### Servicios
@@ -41,7 +41,7 @@ Notification Channels (Log + Email via SMTP)
 3. **alert-service** (puerto 8082)
     - Consume `FraudDetected`.
     - Registra alertas en BD.
-    - Envía notificaciones via múltiples canales (Log + Email).
+    - Envía notificaciones vía múltiples canales (Log + Email).
 
 ## Resiliencia incluida
 
@@ -61,6 +61,8 @@ Notification Channels (Log + Email via SMTP)
 | `HIGH_RISK_MERCHANT` | merchant en lista: MRC-999, MRC-666, MRC-404 | +25 |
 
 El score final se calcula por suma de reglas y se limita a 100.
+
+Una transacción se considera fraude cuando `riskScore >= 70` (configurable con `app.fraud.rules.fraud-score-threshold`).
 
 ## Topics Kafka
 
@@ -103,7 +105,7 @@ Servicios disponibles:
 El `alert-service` envía notificaciones por dos canales:
 
 1. **Log** — siempre activo, escribe en logs del contenedor
-2. **Email** — habilitable via configuración
+2. **Email** — habilitable vía configuración
 
 ### Configurar email
 
@@ -119,7 +121,7 @@ app.notification:
       - security@tu-dominio.com
 ```
 
-O via variables de entorno:
+O vía variables de entorno:
 
 ```bash
 APP_NOTIFICATION_EMAIL_ENABLED=true
@@ -137,40 +139,56 @@ Los emails incluyen un template HTML profesional con:
 
 El proyecto incluye un stack completo de observabilidad:
 
-- **Prometheus** — métricas de los microservicios (`/actuator/prometheus`)
-- **Loki** — almacenamiento de logs estructurados JSON
+- **Prometheus** — métricas de microservicios (`/actuator/prometheus`)
+- **Loki** — almacenamiento de logs JSON estructurados
 - **Promtail** — recolección de logs de contenedores Docker
 - **Tempo** — trazas distribuidas (OpenTelemetry)
 - **Grafana** — dashboards y visualización
 
 ### Dashboards disponibles
 
-1. **Fraud Detection Observability** — HTTP throughput, latencia P95, errores 5xx, logs
-2. **Fraud Alerting Live** — alertas en vivo, score promedio, estado de reglas Prometheus
+1. **Fraud Detection Observability** — throughput HTTP, latencia P95, errores por código HTTP, logs
+2. **Fraud Alerting Live** — alertas en tiempo real, score de riesgo promedio, estado de SLO
 3. **Fraud Tracing** — trazas distribuidas correlacionadas con logs
+4. **Fraud Alert Triage** — investigación de alertas sobre base de datos real (top razones, timeline, tabla detallada)
 
 ### Trazas distribuidas
 
-El sistema propaga `traceId` y `spanId` a través de:
-- HTTP requests (OpenTelemetry bridge)
-- Mensajes Kafka (con `observation-enabled`)
-- Logs (incluidos en JSON estructurado)
+La plataforma propaga `traceId` y `spanId` a través de:
+- Requests HTTP (OpenTelemetry bridge)
+- Mensajes Kafka (`observation-enabled`)
+- Logs JSON estructurados
 
-Puedes ver la traza completa de una transacción desde `transaction-service` → `fraud-detection-service` → `alert-service` en Grafana > Explore > Tempo.
+Puedes inspeccionar la traza completa de una transacción desde `transaction-service` -> `fraud-detection-service` -> `alert-service` en Grafana > Explore > Tempo.
 
-### Métricas Prometheus
+### Métricas de Prometheus
 
 Métricas de negocio:
 
 - `fraud_alerts_total` — total de alertas creadas
-- `fraud_alert_risk_score_count` — cantidad de alertas
-- `fafka_dlq_events_received_total` — eventos DLQ leídos
-- `kafka_dlq_events_reprocessed_total` — eventos DLQ reprocesados
-- `kafka_dlq_events_failed_total` — eventos DLQ que fallaron
+- `fraud_alert_risk_score_count` — cantidad de alertas para distribución de riesgo
+- `transactions_received_total` — transacciones entrantes por canal
+- `fraud_decisions_total{decision}` — decisiones clean/fraud
+- `fraud_alert_notifications_total{channel,outcome}` — resultado de notificaciones por canal
+- `kafka_dlq_events_received_total` — eventos DLQ recibidos
+- `kafka_dlq_events_reprocessed_total` — eventos DLQ reprocesados con éxito
+- `kafka_dlq_events_failed_total` — eventos DLQ con fallo de reproceso
 
-### Logs estructurados JSON
+### Alertas SLO de negocio
 
-Todos los servicios emitien logs en formato JSON estructurado:
+`observability/prometheus/alerts.yml` incluye reglas SLO orientadas a negocio:
+
+- `FraudPipelineCoverageSLOViolation` — menos del 95% de transacciones llega a una decisión de fraude.
+- `FraudToAlertConversionSLOViolation` — menos del 98% de decisiones `fraud` se convierte en alerta.
+- `NotificationFailureRateHigh` — ratio de fallo de notificaciones por encima del 5%.
+- `FraudEvaluationLatencyHigh` — latencia media de evaluación de fraude > 250ms.
+- `AlertNotificationLatencyHigh` — latencia media de notificación > 1.5s.
+
+Tip: filtra por `application` en Grafana para comparar servicios lado a lado.
+
+### Logs JSON estructurados
+
+Todos los servicios emiten logs en formato JSON estructurado:
 
 ```json
 {
@@ -178,16 +196,42 @@ Todos los servicios emitien logs en formato JSON estructurado:
   "level": "INFO",
   "logger_name": "com.fraud.transaction.service.TransactionService",
   "message": "Transaction created: txn-abc123",
-  "service": "transaction-service",
   "traceId": "a1b2c3d4e5f6789012345678",
   "spanId": "1234567890abcdef"
 }
 ```
 
 Esto permite:
-- Filtrado eficiente en Loki por `level`, `service`, `traceId`
-- Correlación logs ↔ traces en Grafana
-- Búsqueda avanzada con LogQL
+- Filtrado eficiente en Loki por labels (`service`) y fields (`level`, `traceId`)
+- Correlación logs <-> trazas en Grafana
+- Consultas avanzadas con LogQL
+
+#### Contrato operativo de logging (v1)
+
+Cada transición relevante de estado emite campos `event` y `outcome` para facilitar filtrado y alertas:
+
+- `transaction-service`: `transaction_received`, `transaction_persisted`, `transaction_event_published`, `transaction_event_publish_failed`
+- `fraud-detection-service`: `fraud_event_consumed`, `fraud_rules_evaluated`, `fraud_rule_hit`, `fraud_decision_made`, `fraud_event_published`
+- `alert-service`: `alert_event_consumed`, `alert_created`, `notification_attempt`, `notification_result`, `fraud_alert_logged`
+
+Campos comunes recomendados:
+
+- `traceId`, `spanId`, `transactionId`, `eventId`
+- `duration_ms`, `risk_score`, `error_code`, `error_class`
+
+Consultas LogQL útiles:
+
+```logql
+{service="fraud-detection-service"} | json | event="fraud_decision_made" | decision="fraud" | risk_score >= 80
+```
+
+```logql
+{service=~"transaction-service|fraud-detection-service"} | json | event=~".*publish_failed"
+```
+
+```logql
+{service="alert-service"} | json | event="notification_result" | channel="email" | outcome="failed"
+```
 
 Para desarrollo local con logs legibles:
 
@@ -244,11 +288,14 @@ bash scripts/generate-fraud-scenarios.sh velocity
 bash scripts/generate-fraud-scenarios.sh country-change
 bash scripts/generate-fraud-scenarios.sh mixed
 
-# Tráfico continuo (3 minutos)
-bash scripts/generate-live-traffic.sh
+# Prueba extrema (carga + fraude + 4xx + 5xx + caos Kafka)
+bash scripts/generate-fire-test.sh
 
-# Ondas de tráfico para ver picos
-bash scripts/generate-burst-pattern.sh
+# Stress test serio con k6 (mucho mas rendimiento que curl)
+bash scripts/run-k6-stress.sh
+
+# Ejemplo agresivo con k6 (>5k req/s objetivo)
+STRESS_RPS=5500 STRESS_DURATION=2m PREALLOCATED_VUS=1500 MAX_VUS=8000 bash scripts/run-k6-stress.sh
 
 # Verificar salud y métricas
 bash scripts/check-observability.sh
@@ -281,12 +328,18 @@ El proyecto incluye un módulo de tests E2E que verifica el flujo completo:
 mvn verify -pl e2e-tests
 ```
 
-**Nota:** Requiere Docker ejecutándose. Levanta los 3 servicios + Kafka + PostgreSQL via Testcontainers y ejecuta 5 escenarios:
+**Nota:** Requiere Docker ejecutándose. Levanta los 3 servicios + Kafka + PostgreSQL vía Testcontainers y ejecuta 5 escenarios:
 1. Transacción fraudulenta genera alerta
 2. Transacción normal NO genera alerta
 3. Webhook endpoint funciona E2E
 4. Múltiples reglas acumulan risk score
 5. Validación de input rechaza requests inválidos
+
+También incluye un escenario de carga mixta (`mixedLoad_shouldKeepApiHealthyAndGenerateExpectedAlerts`) que:
+
+- envía 120 requests concurrentes (REST + webhook)
+- valida error rate <= 2% y P95 < 2.5s en `transaction-service`
+- verifica que el volumen esperado de alertas de fraude se materializa en `alert-service`
 
 ## Desarrollo local sin Docker
 
