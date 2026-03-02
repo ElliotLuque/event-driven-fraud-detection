@@ -4,26 +4,17 @@ Backend orientado a eventos para registrar transacciones financieras, detectar f
 
 ## Arquitectura
 
-```text
-Client/API/Webhook
-      |
-      v
-Transaction Service --> PostgreSQL (transactions)
-      |
-      v
-Kafka topic: transactions.created
-      |
-      v
-Fraud Detection Service --> PostgreSQL (fraud history + idempotency)
-      |
-      v
-Kafka topic: fraud.detected
-      |
-      v
-Alert Service --> PostgreSQL (alerts + idempotency)
-      |
-      v
-Canales de notificación (Log + Email vía SMTP)
+```mermaid
+flowchart TD
+    A[Client/API/Webhook]
+    B[Transaction Service<br/>PostgreSQL transactions]
+    C[Kafka topic<br/>transactions.created]
+    D[Fraud Detection Service<br/>PostgreSQL fraud history + idempotency]
+    E[Kafka topic<br/>fraud.detected]
+    F[Alert Service<br/>PostgreSQL alerts + idempotency]
+    G[Canales de notificación<br/>Log + Email vía SMTP]
+
+    A --> B --> C --> D --> E --> F --> G
 ```
 
 ### Servicios
@@ -276,30 +267,18 @@ GET http://localhost:8082/api/v1/alerts/users/{userId}
 ## Scripts de prueba
 
 ```bash
-# Genera tráfico mixto
-bash scripts/generate-traffic.sh
+# Escenario único de fraude y verificación de alertas
+bash scripts/single-fraud-scenario.sh
 
-# Smoke test puntual
-bash scripts/smoke-test.sh
-
-# Escenarios específicos de fraude
-bash scripts/generate-fraud-scenarios.sh high-amount
-bash scripts/generate-fraud-scenarios.sh velocity
-bash scripts/generate-fraud-scenarios.sh country-change
-bash scripts/generate-fraud-scenarios.sh mixed
-
-# Prueba extrema (carga + fraude + 4xx + 5xx + caos Kafka)
-bash scripts/generate-fire-test.sh
-
-# Stress test serio con k6 (mucho mas rendimiento que curl)
+# Stress test con k6 (modo interactivo si hay TTY)
 bash scripts/run-k6-stress.sh
 
-# Ejemplo agresivo con k6 (>5k req/s objetivo)
-STRESS_RPS=5500 STRESS_DURATION=2m PREALLOCATED_VUS=1500 MAX_VUS=8000 bash scripts/run-k6-stress.sh
+# Stress test no interactivo con parámetros
+STRESS_RPS=900 STRESS_DURATION=3m PREALLOCATED_VUS=400 MAX_VUS=3000 \
+  bash scripts/run-k6-stress.sh --non-interactive
 
-# Verificar salud y métricas
-bash scripts/check-observability.sh
-bash scripts/watch-fraud-metrics.sh
+# Ejemplo agresivo con k6
+STRESS_RPS=5500 STRESS_DURATION=2m PREALLOCATED_VUS=1500 MAX_VUS=8000 bash scripts/run-k6-stress.sh
 ```
 
 ## Tests
