@@ -1,5 +1,4 @@
 apiVersion: 1
-
 datasources:
   - name: Prometheus
     uid: prometheus
@@ -8,7 +7,6 @@ datasources:
     url: http://prometheus:9090
     isDefault: true
     editable: true
-
   - name: Loki
     uid: loki
     type: loki
@@ -22,7 +20,6 @@ datasources:
           matcherRegex: "\"traceId\"\\s*:\\s*\"(\\w+)\""
           name: TraceID
           url: "$${__value.raw}"
-
   - name: Tempo
     uid: tempo
     type: tempo
@@ -32,8 +29,12 @@ datasources:
     jsonData:
       tracesToLogsV2:
         datasourceUid: loki
-        filterByTraceID: true
+        spanStartTimeShift: '-5m'
+        spanEndTimeShift: '5m'
+        filterByTraceID: false
         filterBySpanID: false
+        customQuery: true
+        query: '{compose_project="event-driven-fraud-detection"} |= "$${__trace.traceId}"'
       tracesToMetrics:
         datasourceUid: prometheus
       serviceMap:
@@ -42,3 +43,17 @@ datasources:
         enabled: true
       lokiSearch:
         datasourceUid: loki
+  - name: alert-db
+    uid: alert-db
+    type: postgres
+    access: proxy
+    url: alert-db:5432
+    user: postgres
+    editable: true
+    jsonData:
+      database: alerts
+      sslmode: disable
+      postgresVersion: 1600
+      timescaledb: false
+    secureJsonData:
+      password: postgres
