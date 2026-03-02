@@ -39,8 +39,8 @@ class FullPipelineE2ETest {
 
     @Container
     static final ComposeContainer ENV = new ComposeContainer(
-            "docker:24.0.2",
             new File("docker-compose-e2e.yml"))
+            .withLocalCompose(true)
             .withExposedService("transaction-service-1", 8080,
                     Wait.forHttp("/actuator/health").forStatusCode(200)
                             .withStartupTimeout(STARTUP_TIMEOUT))
