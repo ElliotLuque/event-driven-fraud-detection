@@ -96,6 +96,8 @@ services:
         condition: service_healthy
       transaction-db:
         condition: service_healthy
+      alloy:
+        condition: service_started
     ports:
       - "8080:8080"
     environment:
@@ -104,7 +106,7 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://alloy:4318/v1/traces
     logging:
       driver: json-file
       options:
@@ -121,6 +123,8 @@ services:
         condition: service_healthy
       fraud-db:
         condition: service_healthy
+      alloy:
+        condition: service_started
     ports:
       - "8081:8081"
     environment:
@@ -129,7 +133,7 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://alloy:4318/v1/traces
     logging:
       driver: json-file
       options:
@@ -155,6 +159,8 @@ services:
         condition: service_healthy
       mailhog:
         condition: service_started
+      alloy:
+        condition: service_started
     ports:
       - "8082:8082"
     environment:
@@ -163,7 +169,7 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://alloy:4318/v1/traces
       SPRING_MAIL_HOST: mailhog
       SPRING_MAIL_PORT: 1025
       APP_NOTIFICATION_EMAIL_ENABLED: ${APP_NOTIFICATION_EMAIL_ENABLED:-true}
@@ -203,16 +209,23 @@ services:
       - ./observability/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
       - loki-data:/loki
 
-  promtail:
-    image: grafana/promtail:3.1.1
+  alloy:
+    image: grafana/alloy:v1.13.0
     restart: unless-stopped
     depends_on:
       - loki
-    command: -config.file=/etc/promtail/promtail-config.yml
+      - tempo
+    command:
+      [
+        "run",
+        "--server.http.listen-addr=0.0.0.0:12345",
+        "--storage.path=/var/lib/alloy/data",
+        "/etc/alloy/config.alloy"
+      ]
     volumes:
-      - ./observability/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - promtail-data:/var/lib/promtail
+      - alloy-data:/var/lib/alloy/data
 
   tempo:
     image: grafana/tempo:2.5.0
@@ -245,6 +258,6 @@ services:
 
 volumes:
   loki-data:
-  promtail-data:
+  alloy-data:
   grafana-data:
   tempo-data:

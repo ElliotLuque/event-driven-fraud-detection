@@ -72,7 +72,7 @@ Una transacción se considera fraude cuando `riskScore >= 70` (configurable con 
 - Spring Data JPA + Spring Kafka
 - PostgreSQL (3 bases de datos dedicadas)
 - Docker Compose
-- **Observabilidad:** Prometheus + Loki + Promtail + Tempo + Grafana
+- **Observabilidad:** Prometheus + Loki + Alloy + Tempo + Grafana
 - **Testing:** JUnit 5 + Testcontainers + RestAssured + Awaitility
 
 ## 🚀 Ejecutar localmente
@@ -139,7 +139,7 @@ El proyecto incluye un stack completo de observabilidad:
 
 - **Prometheus** — métricas de microservicios (`/actuator/prometheus`)
 - **Loki** — almacenamiento de logs JSON estructurados
-- **Promtail** — recolección de logs de contenedores Docker
+- **Alloy** — recolección de logs de contenedores Docker y gateway OTLP para trazas
 - **Tempo** — trazas distribuidas (OpenTelemetry)
 - **Grafana** — dashboards y visualización
 
@@ -355,4 +355,4 @@ SPRING_PROFILES_ACTIVE=dev mvn -pl transaction-service spring-boot:run
 - **Tests de integración fallan:** confirma que Docker tiene memoria suficiente
 - **Email no llega:** revisa MailHog en http://localhost:8025
 - **Traces no aparecen:** verifica que Tempo esté healthy y `MANAGEMENT_OTLP_TRACING_ENDPOINT` apunte a `http://tempo:4318/v1/traces`
-- **Logs faltantes en Loki bajo carga:** reinicia `loki` y `promtail` tras cambios de configuración (`docker compose up -d --force-recreate loki promtail`) para aplicar límites de ingesta y persistencia de offsets de Promtail.
+- **Logs faltantes en Loki bajo carga:** reinicia `loki` y `alloy` tras cambios de configuración (`docker compose up -d --force-recreate loki alloy`) para aplicar límites de ingesta y persistencia de offsets.
