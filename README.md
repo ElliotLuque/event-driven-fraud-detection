@@ -1,8 +1,8 @@
-# Event-Driven Fraud Detection
+# 🕵️ Event-Driven Fraud Detection
 
 Backend orientado a eventos para registrar transacciones financieras, detectar fraude de forma asíncrona y generar alertas sin bloquear la operación principal.
 
-## Arquitectura
+## 🧱 Arquitectura
 
 ```mermaid
 flowchart TD
@@ -21,7 +21,7 @@ flowchart TD
     H --> I[(PostgreSQL<br/>alerts + processed_events)]
 ```
 
-### Servicios
+### 🧩 Servicios
 
 1. **transaction-service** (puerto 8080)
     - Expone API REST y endpoint webhook.
@@ -38,7 +38,7 @@ flowchart TD
     - Registra alertas en BD.
     - Envía notificaciones vía múltiples canales (Log + Email).
 
-## Resiliencia incluida
+## 🛡️ Resiliencia incluida
 
 - **Idempotencia** en consumidores (`eventId` en tabla `processed_events`).
 - **Retries** de consumidor con backoff fijo (1s, 3 intentos).
@@ -46,7 +46,7 @@ flowchart TD
 - **Reproceso automático** de eventos desde DLQ.
 - **Persistencia local** por servicio para mantener responsabilidades separadas.
 
-## Reglas de fraude incluidas
+## 🧠 Reglas de fraude incluidas
 
 | Regla | Condición | Score |
 |-------|-----------|-------|
@@ -59,14 +59,14 @@ El score final se calcula por suma de reglas y se limita a 100.
 
 Una transacción se considera fraude cuando `riskScore >= 70` (configurable con `app.fraud.rules.fraud-score-threshold`).
 
-## Topics Kafka
+## 📨 Topics Kafka
 
 - `transactions.created` (6 particiones)
 - `fraud.detected` (6 particiones)
 - `transactions.created.dlq`
 - `fraud.detected.dlq`
 
-## Stack
+## 🧰 Stack
 
 - Java 21 / Spring Boot 3.3.2
 - Spring Data JPA + Spring Kafka
@@ -75,11 +75,14 @@ Una transacción se considera fraude cuando `riskScore >= 70` (configurable con 
 - **Observabilidad:** Prometheus + Loki + Promtail + Tempo + Grafana
 - **Testing:** JUnit 5 + Testcontainers + RestAssured + Awaitility
 
-## Ejecutar localmente
+## 🚀 Ejecutar localmente
 
 ```bash
 docker compose up -d --build
 ```
+
+> [!NOTE]
+> El primer arranque puede tardar varios minutos por la descarga de imágenes y el build inicial de servicios.
 
 Servicios disponibles:
 
@@ -95,14 +98,14 @@ Servicios disponibles:
 | MailHog (emails) | http://localhost:8025 |
 | Tempo (traces) | http://localhost:3200 |
 
-## Notificaciones
+## 📣 Notificaciones
 
 El `alert-service` envía notificaciones por dos canales:
 
 1. **Log** — siempre activo, escribe en logs del contenedor
 2. **Email** — habilitable vía configuración
 
-### Configurar email
+### ✉️ Configurar email
 
 Por defecto está deshabilitado. Para activar:
 
@@ -130,7 +133,7 @@ Los emails incluyen un template HTML profesional con:
 - Información de la transacción
 - Lista de reglas que dispararon la alerta
 
-## Observabilidad
+## 📈 Observabilidad
 
 El proyecto incluye un stack completo de observabilidad:
 
@@ -140,14 +143,14 @@ El proyecto incluye un stack completo de observabilidad:
 - **Tempo** — trazas distribuidas (OpenTelemetry)
 - **Grafana** — dashboards y visualización
 
-### Dashboards disponibles
+### 📊 Dashboards disponibles
 
 1. **Fraud Detection Observability** — throughput HTTP, latencia P95, errores por código HTTP, logs
 2. **Fraud Alerting Live** — alertas en tiempo real, score de riesgo promedio, estado de SLO
 3. **Fraud Tracing** — trazas distribuidas correlacionadas con logs
 4. **Fraud Alert Triage** — investigación de alertas sobre base de datos real (top razones, timeline, tabla detallada)
 
-### Trazas distribuidas
+### 🧵 Trazas distribuidas
 
 La plataforma propaga `traceId` y `spanId` a través de:
 - Requests HTTP (OpenTelemetry bridge)
@@ -156,7 +159,7 @@ La plataforma propaga `traceId` y `spanId` a través de:
 
 Puedes inspeccionar la traza completa de una transacción desde `transaction-service` -> `fraud-detection-service` -> `alert-service` en Grafana > Explore > Tempo.
 
-### Métricas de Prometheus
+### 📏 Métricas de Prometheus
 
 Métricas de negocio:
 
@@ -169,7 +172,7 @@ Métricas de negocio:
 - `kafka_dlq_events_reprocessed_total` — eventos DLQ reprocesados con éxito
 - `kafka_dlq_events_failed_total` — eventos DLQ con fallo de reproceso
 
-### Alertas SLO de negocio
+### 🚨 Alertas SLO de negocio
 
 `observability/prometheus/alerts.yml` incluye reglas SLO orientadas a negocio:
 
@@ -179,9 +182,10 @@ Métricas de negocio:
 - `FraudEvaluationLatencyHigh` — latencia media de evaluación de fraude > 250ms.
 - `AlertNotificationLatencyHigh` — latencia media de notificación > 1.5s.
 
-Tip: filtra por `application` en Grafana para comparar servicios lado a lado.
+> [!TIP]
+> Filtra por `application` en Grafana para comparar servicios lado a lado.
 
-### Logs JSON estructurados
+### 📜 Logs JSON estructurados
 
 Todos los servicios emiten logs en formato JSON estructurado:
 
@@ -201,7 +205,7 @@ Esto permite:
 - Correlación logs <-> trazas en Grafana
 - Consultas avanzadas con LogQL
 
-#### Contrato operativo de logging (v1)
+#### 📘 Contrato operativo de logging (v1)
 
 Cada transición relevante de estado emite campos `event` y `outcome` para facilitar filtrado y alertas:
 
@@ -234,9 +238,9 @@ Para desarrollo local con logs legibles:
 SPRING_PROFILES_ACTIVE=dev mvn spring-boot:run -pl transaction-service
 ```
 
-## API
+## 🔌 API
 
-### Crear transacción (REST)
+### 🧾 Crear transacción (REST)
 
 ```bash
 POST http://localhost:8080/api/v1/transactions
@@ -253,7 +257,7 @@ POST http://localhost:8080/api/v1/transactions
 }
 ```
 
-### Crear transacción (webhook)
+### 🪝 Crear transacción (webhook)
 
 ```bash
 POST http://localhost:8080/api/v1/webhooks/transactions
@@ -261,14 +265,14 @@ POST http://localhost:8080/api/v1/webhooks/transactions
 
 Mismo payload que REST.
 
-### Consultar alertas
+### 🔎 Consultar alertas
 
 ```bash
 GET http://localhost:8082/api/v1/alerts
 GET http://localhost:8082/api/v1/alerts/users/{userId}
 ```
 
-## Scripts de prueba
+## 🧪 Scripts de prueba
 
 ```bash
 # Escenario único de fraude y verificación de alertas
@@ -288,9 +292,9 @@ STRESS_RPS=900 STRESS_DURATION=3m PREALLOCATED_VUS=400 MAX_VUS=3000 \
 STRESS_RPS=5500 STRESS_DURATION=2m PREALLOCATED_VUS=1500 MAX_VUS=8000 bash scripts/run-k6-stress.sh
 ```
 
-## Tests
+## ✅ Tests
 
-### Tests unitarios e integración
+### 🧱 Tests unitarios e integración
 
 ```bash
 # Todos los servicios
@@ -306,7 +310,7 @@ Incluye:
 - Tests de controladores REST
 - Tests de integración con Testcontainers (Kafka + PostgreSQL)
 
-### Tests End-to-End
+### 🌐 Tests End-to-End
 
 El proyecto incluye un módulo de tests E2E que verifica el flujo completo:
 
@@ -314,7 +318,9 @@ El proyecto incluye un módulo de tests E2E que verifica el flujo completo:
 mvn verify -pl e2e-tests
 ```
 
-**Nota:** Requiere Docker ejecutándose. Levanta los 3 servicios + Kafka + PostgreSQL vía Testcontainers y ejecuta 5 escenarios:
+> [!IMPORTANT]
+> Requiere Docker ejecutándose. Levanta los 3 servicios + Kafka + PostgreSQL vía Testcontainers y ejecuta 5 escenarios:
+
 1. Transacción fraudulenta genera alerta
 2. Transacción normal NO genera alerta
 3. Webhook endpoint funciona E2E
@@ -327,7 +333,7 @@ También incluye un escenario de carga mixta (`mixedLoad_shouldKeepApiHealthyAnd
 - valida error rate <= 2% y P95 < 2.5s en `transaction-service`
 - verifica que el volumen esperado de alertas de fraude se materializa en `alert-service`
 
-## Desarrollo local sin Docker
+## 🛠️ Desarrollo local sin Docker
 
 ```bash
 # Requiere Kafka y PostgreSQL funcionando
@@ -342,7 +348,7 @@ Con perfil dev para logs legibles:
 SPRING_PROFILES_ACTIVE=dev mvn -pl transaction-service spring-boot:run
 ```
 
-## Troubleshooting
+## 🆘 Troubleshooting
 
 - **Kafka no responde:** verifica que esté en estado `healthy` en Docker Compose
 - **No ves alertas:** espera ~5-10 segundos (tiempo de procesamiento Kafka) y revisa logs
