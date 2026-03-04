@@ -13,6 +13,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Instant;
 import java.util.List;
@@ -50,11 +51,12 @@ class AlertProcessingServiceTest {
     @Test
     void processShouldSkipDuplicatedEvent() {
         FraudDetectedEvent event = buildEvent("evt-dup", List.of("HIGH_AMOUNT"));
-        when(processedEventRepository.existsById("evt-dup")).thenReturn(true);
+        when(processedEventRepository.saveAndFlush(any(ProcessedEvent.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate"));
 
         alertProcessingService.process(event);
 
-        verify(processedEventRepository).existsById("evt-dup");
+        verify(processedEventRepository).saveAndFlush(any(ProcessedEvent.class));
         verify(alertRepository, never()).save(any(Alert.class));
         verify(processedEventRepository, never()).save(any(ProcessedEvent.class));
         verifyNoInteractions(alertMetrics, notificationGateway);
@@ -63,7 +65,6 @@ class AlertProcessingServiceTest {
     @Test
     void processShouldPersistAlertAndNotifyForNewEvent() {
         FraudDetectedEvent event = buildEvent("evt-1", List.of("HIGH_AMOUNT", "HIGH_RISK_MERCHANT"));
-        when(processedEventRepository.existsById("evt-1")).thenReturn(false);
 
         alertProcessingService.process(event);
 
@@ -72,7 +73,7 @@ class AlertProcessingServiceTest {
         Alert storedAlert = alertCaptor.getValue();
 
         ArgumentCaptor<ProcessedEvent> processedCaptor = ArgumentCaptor.forClass(ProcessedEvent.class);
-        verify(processedEventRepository).save(processedCaptor.capture());
+        verify(processedEventRepository).saveAndFlush(processedCaptor.capture());
         ProcessedEvent storedProcessed = processedCaptor.getValue();
 
         verify(alertMetrics).recordAlertCreated(same(storedAlert));
@@ -92,7 +93,6 @@ class AlertProcessingServiceTest {
     @Test
     void processShouldUseFallbackReasonWhenNoReasonsWereProvided() {
         FraudDetectedEvent event = buildEvent("evt-2", List.of());
-        when(processedEventRepository.existsById("evt-2")).thenReturn(false);
 
         alertProcessingService.process(event);
 
