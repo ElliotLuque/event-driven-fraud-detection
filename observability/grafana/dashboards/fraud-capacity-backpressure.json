@@ -39,10 +39,10 @@
       "keepTime": true,
       "tags": [],
       "targetBlank": false,
-      "title": "Fraud Alerting Live",
+      "title": "Fraud Kafka Operations",
       "tooltip": "",
       "type": "link",
-      "url": "/d/fraud-alerting-live"
+      "url": "/d/fraud-kafka-ops"
     },
     {
       "asDropdown": false,
@@ -55,18 +55,6 @@
       "tooltip": "",
       "type": "link",
       "url": "/d/fraud-tracing"
-    },
-    {
-      "asDropdown": false,
-      "icon": "external link",
-      "includeVars": true,
-      "keepTime": true,
-      "tags": [],
-      "targetBlank": false,
-      "title": "Fraud Capacity",
-      "tooltip": "",
-      "type": "link",
-      "url": "/d/fraud-capacity-bp"
     }
   ],
   "panels": [
@@ -85,20 +73,20 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "green",
                 "value": null
               },
               {
                 "color": "yellow",
-                "value": 0.95
+                "value": 1000
               },
               {
-                "color": "green",
-                "value": 0.99
+                "color": "red",
+                "value": 5000
               }
             ]
           },
-          "unit": "percentunit"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -130,13 +118,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(transaction_events_published_total{application=~\"$application\",outcome=\"success\"}[$__rate_interval])) / clamp_min(sum(rate(transaction_events_published_total{application=~\"$application\"}[$__rate_interval])), 1)",
-          "legendFormat": "publish success",
+          "expr": "sum(clamp_min(kafka_topic_partition_current_offset{topic=~\"$topic\",topic!=\"__consumer_offsets\"} - on(topic, partition, instance, job) group_left(consumergroup) kafka_consumergroup_current_offset{consumergroup=~\"$consumergroup\",topic=~\"$topic\"}, 0))",
+          "legendFormat": "lag",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "transactions.created Publish Success Ratio",
+      "title": "Total Consumer Lag",
       "type": "stat"
     },
     {
@@ -158,16 +146,12 @@
                 "value": null
               },
               {
-                "color": "yellow",
-                "value": 0.95
-              },
-              {
                 "color": "green",
-                "value": 0.99
+                "value": 1
               }
             ]
           },
-          "unit": "percentunit"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -199,13 +183,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(fraud_events_published_total{application=~\"$application\",outcome=\"success\"}[$__rate_interval])) / clamp_min(sum(rate(fraud_events_published_total{application=~\"$application\"}[$__rate_interval])), 1)",
-          "legendFormat": "publish success",
+          "expr": "sum(pg_up)",
+          "legendFormat": "db exporters up",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "fraud.detected Publish Success Ratio",
+      "title": "Postgres Exporters Up",
       "type": "stat"
     },
     {
@@ -227,16 +211,12 @@
                 "value": null
               },
               {
-                "color": "yellow",
-                "value": 0.8
-              },
-              {
                 "color": "green",
-                "value": 0.95
+                "value": 1
               }
             ]
           },
-          "unit": "percentunit"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -268,13 +248,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(increase(kafka_dlq_events_reprocessed_total{application=~\"$application\"}[$__range])) / clamp_min(sum(increase(kafka_dlq_events_received_total{application=~\"$application\"}[$__range])), 1)",
-          "legendFormat": "dlq recovery",
+          "expr": "sum(up{job=\"kafka-exporter\"})",
+          "legendFormat": "kafka exporter up",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "DLQ Recovery Ratio",
+      "title": "Kafka Exporter Up",
       "type": "stat"
     },
     {
@@ -292,11 +272,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "green",
                 "value": 1
               }
             ]
@@ -333,13 +313,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(increase(kafka_dlq_events_failed_total{application=~\"$application\"}[$__range]))",
-          "legendFormat": "dlq failed",
+          "expr": "sum(up{job=\"cadvisor\"})",
+          "legendFormat": "cadvisor up",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "DLQ Reprocess Failures (range)",
+      "title": "cAdvisor Up",
       "type": "stat"
     },
     {
@@ -358,15 +338,8 @@
             "axisColorMode": "text",
             "axisLabel": "events/s",
             "axisPlacement": "auto",
-            "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
             "lineInterpolation": "linear",
             "lineWidth": 2,
             "pointSize": 4,
@@ -393,7 +366,7 @@
               },
               {
                 "color": "red",
-                "value": 0
+                "value": 1
               }
             ]
           },
@@ -424,34 +397,34 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(transaction_events_published_total{application=~\"$application\",outcome=\"success\"}[$__rate_interval])) by (application)",
-          "legendFormat": "transactions.created published - {{application}}",
+          "expr": "sum(rate(transaction_events_published_total{application=\"transaction-service\",outcome=\"success\"}[$__rate_interval]))",
+          "legendFormat": "transactions.created publish",
           "range": true,
           "refId": "A"
         },
         {
           "editorMode": "code",
-          "expr": "sum(rate(fraud_events_consumed_total{application=~\"$application\"}[$__rate_interval])) by (application)",
-          "legendFormat": "fraud-detection consume - {{application}}",
+          "expr": "sum(rate(fraud_events_consumed_total{application=\"fraud-detection-service\"}[$__rate_interval]))",
+          "legendFormat": "fraud-detection consume",
           "range": true,
           "refId": "B"
         },
         {
           "editorMode": "code",
-          "expr": "sum(rate(fraud_events_published_total{application=~\"$application\",outcome=\"success\"}[$__rate_interval])) by (application)",
-          "legendFormat": "fraud.detected published - {{application}}",
+          "expr": "sum(rate(fraud_events_published_total{application=\"fraud-detection-service\",outcome=\"success\"}[$__rate_interval]))",
+          "legendFormat": "fraud.detected publish",
           "range": true,
           "refId": "C"
         },
         {
           "editorMode": "code",
-          "expr": "sum(rate(fraud_alerts_total{application=~\"$application\"}[$__rate_interval])) by (application)",
-          "legendFormat": "alerts created - {{application}}",
+          "expr": "sum(rate(fraud_alerts_total{application=\"alert-service\"}[$__rate_interval]))",
+          "legendFormat": "alerts created",
           "range": true,
           "refId": "D"
         }
       ],
-      "title": "Kafka Pipeline Event Rates",
+      "title": "Pipeline Throughput by Stage",
       "type": "timeseries"
     },
     {
@@ -466,19 +439,12 @@
           },
           "custom": {
             "axisBorderShow": false,
-            "axisCenteredZero": false,
+            "axisCenteredZero": true,
             "axisColorMode": "text",
-            "axisLabel": "%",
+            "axisLabel": "events/s",
             "axisPlacement": "auto",
-            "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 12,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
+            "fillOpacity": 8,
             "lineInterpolation": "linear",
             "lineWidth": 2,
             "pointSize": 4,
@@ -500,20 +466,16 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "green",
                 "value": null
               },
               {
-                "color": "yellow",
-                "value": 0.95
-              },
-              {
-                "color": "green",
-                "value": 0.99
+                "color": "red",
+                "value": 0
               }
             ]
           },
-          "unit": "percentunit"
+          "unit": "ops"
         },
         "overrides": []
       },
@@ -540,27 +502,20 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(fraud_events_consumed_total{application=~\"$application\"}[$__rate_interval])) / clamp_min(sum(rate(transaction_events_published_total{application=~\"$application\",outcome=\"success\"}[$__rate_interval])), 1)",
-          "legendFormat": "transactions.created handoff ratio",
+          "expr": "sum(rate(transaction_events_published_total{application=\"transaction-service\",outcome=\"success\"}[$__rate_interval])) - sum(rate(fraud_events_consumed_total{application=\"fraud-detection-service\"}[$__rate_interval]))",
+          "legendFormat": "publish - consume delta",
           "range": true,
           "refId": "A"
         },
         {
           "editorMode": "code",
-          "expr": "sum(rate(fraud_alerts_total{application=~\"$application\"}[$__rate_interval])) / clamp_min(sum(rate(fraud_events_published_total{application=~\"$application\",outcome=\"success\"}[$__rate_interval])), 1)",
-          "legendFormat": "fraud.detected to alert ratio",
+          "expr": "sum(rate(fraud_events_published_total{application=\"fraud-detection-service\",outcome=\"success\"}[$__rate_interval])) - sum(rate(fraud_alerts_total{application=\"alert-service\"}[$__rate_interval]))",
+          "legendFormat": "fraud publish - alert create delta",
           "range": true,
           "refId": "B"
-        },
-        {
-          "editorMode": "code",
-          "expr": "1 - (sum(rate(kafka_dlq_events_failed_total{application=~\"$application\"}[$__rate_interval])) / clamp_min(sum(rate(kafka_dlq_events_received_total{application=~\"$application\"}[$__rate_interval])), 1))",
-          "legendFormat": "dlq successful handling ratio",
-          "range": true,
-          "refId": "C"
         }
       ],
-      "title": "Kafka Pipeline Reliability Ratios",
+      "title": "Backpressure Delta (stage in - stage out)",
       "type": "timeseries"
     },
     {
@@ -577,17 +532,10 @@
             "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "events/s",
+            "axisLabel": "messages",
             "axisPlacement": "auto",
-            "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 16,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
+            "fillOpacity": 12,
             "lineInterpolation": "linear",
             "lineWidth": 2,
             "pointSize": 4,
@@ -618,7 +566,7 @@
               }
             ]
           },
-          "unit": "ops"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -645,27 +593,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(kafka_dlq_events_received_total{application=~\"$application\"}[$__rate_interval])) by (application)",
-          "legendFormat": "received - {{application}}",
+          "expr": "sum by (consumergroup, topic) (clamp_min(kafka_topic_partition_current_offset{topic=~\"$topic\",topic!=\"__consumer_offsets\"} - on(topic, partition, instance, job) group_left(consumergroup) kafka_consumergroup_current_offset{consumergroup=~\"$consumergroup\",topic=~\"$topic\"}, 0))",
+          "legendFormat": "{{consumergroup}} / {{topic}}",
           "range": true,
           "refId": "A"
-        },
-        {
-          "editorMode": "code",
-          "expr": "sum(rate(kafka_dlq_events_reprocessed_total{application=~\"$application\"}[$__rate_interval])) by (application)",
-          "legendFormat": "reprocessed - {{application}}",
-          "range": true,
-          "refId": "B"
-        },
-        {
-          "editorMode": "code",
-          "expr": "sum(rate(kafka_dlq_events_failed_total{application=~\"$application\"}[$__rate_interval])) by (application)",
-          "legendFormat": "failed - {{application}}",
-          "range": true,
-          "refId": "C"
         }
       ],
-      "title": "DLQ Throughput by Service",
+      "title": "Consumer Lag by Group and Topic",
       "type": "timeseries"
     },
     {
@@ -678,37 +612,6 @@
           "color": {
             "mode": "palette-classic"
           },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "ms",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 4,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -719,11 +622,11 @@
               },
               {
                 "color": "red",
-                "value": 250
+                "value": 1
               }
             ]
           },
-          "unit": "ms"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -750,20 +653,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "1000 * sum(rate(transaction_event_publish_latency_seconds_sum{application=~\"$application\"}[$__rate_interval])) / clamp_min(sum(rate(transaction_event_publish_latency_seconds_count{application=~\"$application\"}[$__rate_interval])), 1)",
-          "legendFormat": "transaction publish avg latency",
+          "expr": "topk(12, sum by (topic, partition) (rate(kafka_topic_partition_current_offset{topic=~\"$topic\",topic!~\"__consumer_offsets\"}[$__rate_interval])))",
+          "legendFormat": "{{topic}} p{{partition}}",
           "range": true,
           "refId": "A"
-        },
-        {
-          "editorMode": "code",
-          "expr": "1000 * sum(rate(fraud_evaluation_latency_seconds_sum{application=~\"$application\"}[$__rate_interval])) / clamp_min(sum(rate(fraud_evaluation_latency_seconds_count{application=~\"$application\"}[$__rate_interval])), 1)",
-          "legendFormat": "fraud evaluation avg latency",
-          "range": true,
-          "refId": "B"
         }
       ],
-      "title": "Pipeline Stage Latency",
+      "title": "Partition Traffic Skew (Top Partitions)",
       "type": "timeseries"
     },
     {
@@ -776,6 +672,30 @@
           "color": {
             "mode": "palette-classic"
           },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "connections",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -786,7 +706,7 @@
               },
               {
                 "color": "red",
-                "value": 0
+                "value": 1
               }
             ]
           },
@@ -796,47 +716,49 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
+        "w": 12,
         "x": 0,
         "y": 22
       },
       "id": 9,
       "options": {
-        "displayMode": "lcd",
-        "minVizHeight": 10,
-        "minVizWidth": 0,
-        "namePlacement": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
         },
-        "showUnfilled": true,
-        "sizing": "auto",
-        "valueMode": "color"
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
       },
       "pluginVersion": "11.1.4",
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(increase(transaction_events_published_total{application=~\"$application\"}[$__range])) by (outcome)",
-          "legendFormat": "transaction publish {{outcome}}",
+          "expr": "sum by (application) (hikaricp_connections_active)",
+          "legendFormat": "active - {{application}}",
           "range": true,
           "refId": "A"
         },
         {
           "editorMode": "code",
-          "expr": "sum(increase(fraud_events_published_total{application=~\"$application\"}[$__range])) by (outcome)",
-          "legendFormat": "fraud publish {{outcome}}",
+          "expr": "sum by (application) (hikaricp_connections_pending)",
+          "legendFormat": "pending - {{application}}",
           "range": true,
           "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum by (application) (hikaricp_connections_max)",
+          "legendFormat": "max - {{application}}",
+          "range": true,
+          "refId": "C"
         }
       ],
-      "title": "Publish Outcome Breakdown (range)",
-      "type": "bargauge"
+      "title": "JDBC Pool Pressure (Hikari)",
+      "type": "timeseries"
     },
     {
       "datasource": {
@@ -847,6 +769,30 @@
         "defaults": {
           "color": {
             "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "ops/s",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
           },
           "mappings": [],
           "thresholds": {
@@ -868,8 +814,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 8,
+        "w": 12,
+        "x": 12,
         "y": 22
       },
       "id": 10,
@@ -889,20 +835,27 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(kafka_producer_record_send_total{application=~\"$application\"}[$__rate_interval])) by (application)",
-          "legendFormat": "producer send - {{application}}",
+          "expr": "sum(rate(pg_stat_database_xact_commit{datname=~\"$database\"}[$__rate_interval])) by (datname)",
+          "legendFormat": "commit - {{datname}}",
           "range": true,
           "refId": "A"
         },
         {
           "editorMode": "code",
-          "expr": "sum(rate(kafka_consumer_records_consumed_total{application=~\"$application\"}[$__rate_interval])) by (application)",
-          "legendFormat": "consumer consumed - {{application}}",
+          "expr": "sum(rate(pg_stat_database_xact_rollback{datname=~\"$database\"}[$__rate_interval])) by (datname)",
+          "legendFormat": "rollback - {{datname}}",
           "range": true,
           "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(pg_stat_database_deadlocks{datname=~\"$database\"}[$__rate_interval])) by (datname)",
+          "legendFormat": "deadlocks - {{datname}}",
+          "range": true,
+          "refId": "C"
         }
       ],
-      "title": "Kafka Client Metrics (if available)",
+      "title": "Postgres Tx and Deadlocks",
       "type": "timeseries"
     },
     {
@@ -913,14 +866,115 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "mode": "palette-classic"
           },
           "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "%",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
             },
-            "inspect": false
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 2
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 30
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.1.4",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "100 * avg by (application, instance) (process_cpu_usage{job=\"spring-services\"} / on(instance, job) group_left system_cpu_count{job=\"spring-services\"})",
+          "legendFormat": "{{application}} {{instance}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Service CPU by Instance (%)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "bytes",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
           },
           "mappings": [],
           "thresholds": {
@@ -936,77 +990,145 @@
               }
             ]
           },
-          "unit": "short"
+          "unit": "bytes"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 22
+        "w": 12,
+        "x": 12,
+        "y": 30
       },
-      "id": 11,
+      "id": 12,
       "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
         },
-        "showHeader": true
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
       },
       "pluginVersion": "11.1.4",
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(increase(kafka_dlq_events_received_total{application=~\"$application\"}[$__range])) by (application)",
-          "format": "table",
-          "instant": true,
-          "legendFormat": "received",
-          "range": false,
+          "expr": "sum by (application) (jvm_memory_used_bytes{job=\"spring-services\",area=\"heap\"})",
+          "legendFormat": "{{application}}",
+          "range": true,
           "refId": "A"
-        },
-        {
-          "editorMode": "code",
-          "expr": "sum(increase(kafka_dlq_events_reprocessed_total{application=~\"$application\"}[$__range])) by (application)",
-          "format": "table",
-          "instant": true,
-          "legendFormat": "reprocessed",
-          "range": false,
-          "refId": "B"
-        },
-        {
-          "editorMode": "code",
-          "expr": "sum(increase(kafka_dlq_events_failed_total{application=~\"$application\"}[$__range])) by (application)",
-          "format": "table",
-          "instant": true,
-          "legendFormat": "failed",
-          "range": false,
-          "refId": "C"
         }
       ],
-      "title": "DLQ Totals by Service (range)",
-      "type": "table"
+      "title": "Service JVM Memory by Application",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "cores",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 2
+              }
+            ]
+          },
+          "unit": "cores"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 38
+      },
+      "id": 13,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.1.4",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (application) (process_cpu_usage{job=\"spring-services\"} * on(instance, job) group_left system_cpu_count{job=\"spring-services\"})",
+          "legendFormat": "{{application}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Service CPU Cores by Application",
+      "type": "timeseries"
     }
   ],
   "refresh": "15s",
   "schemaVersion": 39,
   "tags": [
     "fraud",
-    "kafka",
-    "operations"
+    "capacity",
+    "backpressure"
   ],
   "templating": {
     "list": [
       {
         "current": {
           "selected": true,
-          "text": "All",
-          "value": "$__all"
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
         },
         "datasource": {
           "type": "prometheus",
@@ -1026,7 +1148,99 @@
         },
         "refresh": 1,
         "regex": "",
-        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(kafka_consumergroup_current_offset, consumergroup)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Consumer Group",
+        "multi": true,
+        "name": "consumergroup",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(kafka_consumergroup_current_offset, consumergroup)",
+          "refId": "Prometheus-consumergroup"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(kafka_topic_partitions, topic)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Kafka Topic",
+        "multi": true,
+        "name": "topic",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(kafka_topic_partitions, topic)",
+          "refId": "Prometheus-topic"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(pg_stat_database_numbackends, datname)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Postgres DB",
+        "multi": true,
+        "name": "database",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(pg_stat_database_numbackends, datname)",
+          "refId": "Prometheus-database"
+        },
+        "refresh": 2,
+        "regex": "/^(?!template0$|template1$|postgres$).*/",
         "sort": 1,
         "type": "query"
       }
@@ -1038,8 +1252,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Fraud Kafka Operations",
-  "uid": "fraud-kafka-ops",
+  "title": "Fraud Capacity and Backpressure",
+  "uid": "fraud-capacity-bp",
   "version": 1,
   "weekStart": ""
 }
