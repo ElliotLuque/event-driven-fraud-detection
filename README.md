@@ -40,7 +40,7 @@ flowchart TD
 
 ## 🛡️ Resiliencia incluida
 
-- **Idempotencia** en consumidores (`eventId` en tabla `processed_events`).
+- **Idempotencia concurrente** en consumidores (`eventId` en `processed_events`) con inserción atómica (`saveAndFlush`) y manejo de `DataIntegrityViolationException` para eliminar carreras de tipo `check-then-act`.
 - **Retries** de consumidor con backoff fijo (1s, 3 intentos).
 - **Dead Letter Topic (DLQ)** por tópico principal.
 - **Reproceso automático** de eventos desde DLQ.

@@ -9,6 +9,7 @@ import com.fraud.alert.repository.ProcessedEventRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,7 +62,8 @@ public class AlertProcessingService {
                     kv("reasons_count", event.reasons() == null ? 0 : event.reasons().size())
             );
 
-            if (processedEventRepository.existsById(event.eventId())) {
+            Instant now = Instant.now();
+            if (!tryMarkAsProcessed(event.eventId(), now)) {
                 log.info("alert_event_duplicate",
                         kv("event", "alert_event_duplicate"),
                         kv("outcome", "duplicate"),
@@ -72,11 +74,9 @@ public class AlertProcessingService {
             }
 
             long createdStartNanos = System.nanoTime();
-            Instant now = Instant.now();
             Alert alert = alertEventMapper.toAlert(event, now, traceId);
 
             alertRepository.save(alert);
-            processedEventRepository.save(new ProcessedEvent(event.eventId(), now));
             long createDurationMs = (System.nanoTime() - createdStartNanos) / 1_000_000;
             alertMetrics.recordAlertCreated(alert);
             log.info("alert_created",
@@ -102,5 +102,14 @@ public class AlertProcessingService {
             return currentTraceId;
         }
         return eventTraceId;
+    }
+
+    private boolean tryMarkAsProcessed(String eventId, Instant processedAt) {
+        try {
+            processedEventRepository.saveAndFlush(new ProcessedEvent(eventId, processedAt));
+            return true;
+        } catch (DataIntegrityViolationException ignored) {
+            return false;
+        }
     }
 }

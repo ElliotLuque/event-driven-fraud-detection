@@ -20,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mapstruct.factory.Mappers;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -82,11 +83,12 @@ class FraudDetectionServiceTest {
     @Test
     void processShouldSkipWhenEventWasAlreadyProcessed() {
         TransactionCreatedEvent event = buildEvent("evt-1", Instant.parse("2026-01-01T10:00:00Z"));
-        when(processedEventRepository.existsById(event.eventId())).thenReturn(true);
+        when(processedEventRepository.saveAndFlush(any(ProcessedEvent.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate"));
 
         fraudDetectionService.process(event);
 
-        verify(processedEventRepository).existsById("evt-1");
+        verify(processedEventRepository).saveAndFlush(any(ProcessedEvent.class));
         verifyNoInteractions(historyRepository, fraudRulesEngine, fraudEventPublisher);
         verify(processedEventRepository, never()).save(any(ProcessedEvent.class));
     }
@@ -96,7 +98,6 @@ class FraudDetectionServiceTest {
         Instant occurredAt = Instant.parse("2026-01-01T10:00:00Z");
         TransactionCreatedEvent event = buildEvent("evt-2", occurredAt);
 
-        when(processedEventRepository.existsById(event.eventId())).thenReturn(false);
         when(historyRepository.countByUserIdAndOccurredAtAfter(eq("user-1"), eq(occurredAt.minus(Duration.ofMinutes(1)))))
                 .thenReturn(2L);
         when(historyRepository.findTopByUserIdOrderByOccurredAtDesc("user-1")).thenReturn(Optional.empty());
@@ -110,7 +111,7 @@ class FraudDetectionServiceTest {
         UserTransactionHistory storedHistory = historyCaptor.getValue();
 
         ArgumentCaptor<ProcessedEvent> processedCaptor = ArgumentCaptor.forClass(ProcessedEvent.class);
-        verify(processedEventRepository).save(processedCaptor.capture());
+        verify(processedEventRepository).saveAndFlush(processedCaptor.capture());
         ProcessedEvent processedEvent = processedCaptor.getValue();
 
         verify(fraudRulesEngine).evaluate(event, Optional.empty(), 2L, occurredAt);
@@ -129,7 +130,6 @@ class FraudDetectionServiceTest {
         TransactionCreatedEvent event = buildEvent("evt-3", null);
         Instant before = Instant.now();
 
-        when(processedEventRepository.existsById(event.eventId())).thenReturn(false);
         when(historyRepository.countByUserIdAndOccurredAtAfter(eq("user-1"), any(Instant.class))).thenReturn(0L);
         when(historyRepository.findTopByUserIdOrderByOccurredAtDesc("user-1")).thenReturn(Optional.empty());
         when(fraudRulesEngine.evaluate(eq(event), eq(Optional.empty()), eq(0L), any(Instant.class)))
@@ -143,7 +143,7 @@ class FraudDetectionServiceTest {
         UserTransactionHistory storedHistory = historyCaptor.getValue();
 
         ArgumentCaptor<ProcessedEvent> processedCaptor = ArgumentCaptor.forClass(ProcessedEvent.class);
-        verify(processedEventRepository).save(processedCaptor.capture());
+        verify(processedEventRepository).saveAndFlush(processedCaptor.capture());
         ProcessedEvent processedEvent = processedCaptor.getValue();
 
         ArgumentCaptor<FraudDetectedEvent> fraudEventCaptor = ArgumentCaptor.forClass(FraudDetectedEvent.class);

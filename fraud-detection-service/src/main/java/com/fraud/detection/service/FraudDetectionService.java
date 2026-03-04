@@ -15,6 +15,7 @@ import com.fraud.detection.rules.FraudRulesEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -72,7 +73,9 @@ public class FraudDetectionService {
                 kv("lag_ms", lagMs)
         );
 
-        if (processedEventRepository.existsById(event.eventId())) {
+        Instant occurredAt = event.occurredAt() != null ? event.occurredAt() : Instant.now();
+
+        if (!tryMarkAsProcessed(event.eventId(), occurredAt)) {
             log.info("fraud_event_duplicate",
                     kv("event", "fraud_event_duplicate"),
                     kv("outcome", "duplicate"),
@@ -81,8 +84,6 @@ public class FraudDetectionService {
             );
             return;
         }
-
-        Instant occurredAt = event.occurredAt() != null ? event.occurredAt() : Instant.now();
 
         long recentTransactionsCount = historyRepository.countByUserIdAndOccurredAtAfter(
                 event.userId(),
@@ -119,7 +120,6 @@ public class FraudDetectionService {
         }
 
         historyRepository.save(userTransactionHistoryMapper.toHistory(event, occurredAt));
-        processedEventRepository.save(new ProcessedEvent(event.eventId(), occurredAt));
 
         if (!evaluation.fraudulent()) {
             fraudDetectionMetrics.recordDecision("clean");
@@ -186,5 +186,14 @@ public class FraudDetectionService {
             return mdcTraceId;
         }
         return eventTraceId;
+    }
+
+    private boolean tryMarkAsProcessed(String eventId, Instant processedAt) {
+        try {
+            processedEventRepository.saveAndFlush(new ProcessedEvent(eventId, processedAt));
+            return true;
+        } catch (DataIntegrityViolationException ignored) {
+            return false;
+        }
     }
 }
