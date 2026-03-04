@@ -5,7 +5,7 @@ import com.fraud.transaction.api.TransactionResponse;
 import com.fraud.transaction.domain.Transaction;
 import com.fraud.transaction.events.TransactionCreatedEvent;
 import com.fraud.transaction.mapping.TransactionMapper;
-import com.fraud.transaction.messaging.TransactionEventPublisher;
+import com.fraud.transaction.outbox.TransactionOutboxService;
 import com.fraud.transaction.repository.TransactionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,18 +25,18 @@ public class TransactionService {
     private static final Logger log = LoggerFactory.getLogger(TransactionService.class);
 
     private final TransactionRepository transactionRepository;
-    private final TransactionEventPublisher transactionEventPublisher;
+    private final TransactionOutboxService transactionOutboxService;
     private final TransactionMapper transactionMapper;
     private final TransactionMetrics transactionMetrics;
 
     public TransactionService(
             TransactionRepository transactionRepository,
-            TransactionEventPublisher transactionEventPublisher,
+            TransactionOutboxService transactionOutboxService,
             TransactionMapper transactionMapper,
             TransactionMetrics transactionMetrics
     ) {
         this.transactionRepository = transactionRepository;
-        this.transactionEventPublisher = transactionEventPublisher;
+        this.transactionOutboxService = transactionOutboxService;
         this.transactionMapper = transactionMapper;
         this.transactionMetrics = transactionMetrics;
     }
@@ -84,28 +84,28 @@ public class TransactionService {
                 now,
                 traceId
         );
-        long publishStartNanos = System.nanoTime();
+        long enqueueStartNanos = System.nanoTime();
         try {
-            transactionEventPublisher.publish(event);
-            long publishDurationMs = (System.nanoTime() - publishStartNanos) / 1_000_000;
-            transactionMetrics.recordTransactionEventPublished("success", publishDurationMs);
-            log.info("transaction_event_published",
-                    kv("event", "transaction_event_published"),
+            transactionOutboxService.enqueue(event);
+            long enqueueDurationMs = (System.nanoTime() - enqueueStartNanos) / 1_000_000;
+            transactionMetrics.recordTransactionEventEnqueued("success", enqueueDurationMs);
+            log.info("transaction_event_enqueued",
+                    kv("event", "transaction_event_enqueued"),
                     kv("outcome", "success"),
                     kv("transactionId", transactionId),
                     kv("eventId", event.eventId()),
-                    kv("duration_ms", publishDurationMs)
+                    kv("duration_ms", enqueueDurationMs)
             );
         } catch (IllegalStateException ex) {
-            long publishDurationMs = (System.nanoTime() - publishStartNanos) / 1_000_000;
-            transactionMetrics.recordTransactionEventPublished("failed", publishDurationMs);
-            log.error("transaction_event_publish_failed",
-                    kv("event", "transaction_event_publish_failed"),
+            long enqueueDurationMs = (System.nanoTime() - enqueueStartNanos) / 1_000_000;
+            transactionMetrics.recordTransactionEventEnqueued("failed", enqueueDurationMs);
+            log.error("transaction_event_enqueue_failed",
+                    kv("event", "transaction_event_enqueue_failed"),
                     kv("outcome", "failed"),
                     kv("transactionId", transactionId),
                     kv("eventId", event.eventId()),
-                    kv("duration_ms", publishDurationMs),
-                    kv("error_code", "KAFKA_PUBLISH_FAILED"),
+                    kv("duration_ms", enqueueDurationMs),
+                    kv("error_code", "OUTBOX_ENQUEUE_FAILED"),
                     kv("error_class", ex.getClass().getSimpleName()),
                     kv("error_message", ex.getMessage())
             );

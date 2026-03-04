@@ -24,8 +24,12 @@ public class TransactionEventPublisher {
     }
 
     public void publish(TransactionCreatedEvent event) {
+        publish(topic, event.transactionId(), event);
+    }
+
+    public void publish(String topic, String key, TransactionCreatedEvent event) {
         try {
-            kafkaTemplate.send(topic, event.transactionId(), event).get(5, TimeUnit.SECONDS);
+            kafkaTemplate.send(topic, key, event).get(5, TimeUnit.SECONDS);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Kafka publish interrupted", ex);

@@ -6,7 +6,7 @@ import com.fraud.transaction.domain.PaymentMethod;
 import com.fraud.transaction.domain.Transaction;
 import com.fraud.transaction.events.TransactionCreatedEvent;
 import com.fraud.transaction.mapping.TransactionMapper;
-import com.fraud.transaction.messaging.TransactionEventPublisher;
+import com.fraud.transaction.outbox.TransactionOutboxService;
 import com.fraud.transaction.repository.TransactionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,7 +30,7 @@ class TransactionServiceTest {
     private TransactionRepository transactionRepository;
 
     @Mock
-    private TransactionEventPublisher transactionEventPublisher;
+    private TransactionOutboxService transactionOutboxService;
 
     @Mock
     private TransactionMetrics transactionMetrics;
@@ -59,7 +59,7 @@ class TransactionServiceTest {
         Transaction storedTransaction = transactionCaptor.getValue();
 
         ArgumentCaptor<TransactionCreatedEvent> eventCaptor = ArgumentCaptor.forClass(TransactionCreatedEvent.class);
-        verify(transactionEventPublisher).publish(eventCaptor.capture());
+        verify(transactionOutboxService).enqueue(eventCaptor.capture());
         TransactionCreatedEvent publishedEvent = eventCaptor.getValue();
 
         assertEquals("USD", storedTransaction.getCurrency());

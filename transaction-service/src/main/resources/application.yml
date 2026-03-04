@@ -8,6 +8,10 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/transactions}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    hikari:
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:30}
+      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE:10}
+      connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT:2000}
   jpa:
     hibernate:
       ddl-auto: update
@@ -55,3 +59,11 @@ app:
   kafka:
     topics:
       transactions-created: transactions.created
+  outbox:
+    relay-interval-ms: ${APP_OUTBOX_RELAY_INTERVAL_MS:200}
+    relay-initial-delay-ms: ${APP_OUTBOX_RELAY_INITIAL_DELAY_MS:1000}
+    relay-batch-size: ${APP_OUTBOX_RELAY_BATCH_SIZE:200}
+    retry-delay: ${APP_OUTBOX_RETRY_DELAY:PT2S}
+    published-retention: ${APP_OUTBOX_PUBLISHED_RETENTION:PT24H}
+    cleanup-interval-ms: ${APP_OUTBOX_CLEANUP_INTERVAL_MS:300000}
+    cleanup-initial-delay-ms: ${APP_OUTBOX_CLEANUP_INITIAL_DELAY_MS:60000}
