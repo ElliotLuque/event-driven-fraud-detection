@@ -87,6 +87,68 @@ services:
       timeout: 5s
       retries: 5
 
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.8.0
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command:
+      - "--kafka.server=kafka:9092"
+      - "--log.level=warn"
+    ports:
+      - "9308:9308"
+
+  transaction-db-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    restart: unless-stopped
+    depends_on:
+      transaction-db:
+        condition: service_healthy
+    environment:
+      DATA_SOURCE_NAME: postgresql://postgres:postgres@transaction-db:5432/transactions?sslmode=disable
+    ports:
+      - "9187:9187"
+
+  fraud-db-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    restart: unless-stopped
+    depends_on:
+      fraud-db:
+        condition: service_healthy
+    environment:
+      DATA_SOURCE_NAME: postgresql://postgres:postgres@fraud-db:5432/fraud?sslmode=disable
+    ports:
+      - "9188:9187"
+
+  alert-db-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    restart: unless-stopped
+    depends_on:
+      alert-db:
+        condition: service_healthy
+    environment:
+      DATA_SOURCE_NAME: postgresql://postgres:postgres@alert-db:5432/alerts?sslmode=disable
+    ports:
+      - "9189:9187"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    restart: unless-stopped
+    privileged: true
+    command:
+      - "--docker_only=true"
+      - "--store_container_labels=true"
+      - "--whitelisted_container_labels=com.docker.compose.project,com.docker.compose.service,com.docker.compose.container-number"
+    ports:
+      - "8088:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+
   transaction-service:
     build:
       context: ./transaction-service
@@ -189,6 +251,11 @@ services:
       - transaction-service
       - fraud-detection-service
       - alert-service
+      - kafka-exporter
+      - transaction-db-exporter
+      - fraud-db-exporter
+      - alert-db-exporter
+      - cadvisor
     ports:
       - "9090:9090"
     command:

@@ -18,3 +18,31 @@ scrape_configs:
           - transaction-service:8080
           - fraud-detection-service:8081
           - alert-service:8082
+
+  - job_name: kafka-exporter
+    static_configs:
+      - targets:
+          - kafka-exporter:9308
+
+  - job_name: postgres-exporters
+    static_configs:
+      - targets:
+          - transaction-db-exporter:9187
+        labels:
+          db_service: transaction-db
+          db_name: transactions
+      - targets:
+          - fraud-db-exporter:9187
+        labels:
+          db_service: fraud-db
+          db_name: fraud
+      - targets:
+          - alert-db-exporter:9187
+        labels:
+          db_service: alert-db
+          db_name: alerts
+
+  - job_name: cadvisor
+    static_configs:
+      - targets:
+          - cadvisor:8080
