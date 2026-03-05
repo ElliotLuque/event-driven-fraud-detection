@@ -20,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mapstruct.factory.Mappers;
+import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
@@ -162,6 +163,27 @@ class FraudDetectionServiceTest {
         assertEquals(List.of("HIGH_AMOUNT", "HIGH_RISK_MERCHANT"), fraudEvent.reasons());
         assertEquals("v1.0.0", fraudEvent.ruleVersion());
         assertTrue(fraudEvent.occurredAt().isAfter(before) || fraudEvent.occurredAt().equals(before));
+    }
+
+    @Test
+    void processShouldPreferEventTraceIdOverMdcTraceId() {
+        TransactionCreatedEvent event = buildEvent("evt-4", null);
+        MDC.put("traceId", "mdc-trace-that-must-not-win");
+
+        when(historyRepository.countByUserIdAndOccurredAtAfter(eq("user-1"), any(Instant.class))).thenReturn(0L);
+        when(historyRepository.findTopByUserIdOrderByOccurredAtDesc("user-1")).thenReturn(Optional.empty());
+        when(fraudRulesEngine.evaluate(eq(event), eq(Optional.empty()), eq(0L), any(Instant.class)))
+                .thenReturn(new FraudEvaluation(true, 80, List.of("HIGH_AMOUNT")));
+
+        try {
+            fraudDetectionService.process(event);
+        } finally {
+            MDC.remove("traceId");
+        }
+
+        ArgumentCaptor<FraudDetectedEvent> fraudEventCaptor = ArgumentCaptor.forClass(FraudDetectedEvent.class);
+        verify(fraudEventPublisher).publish(fraudEventCaptor.capture());
+        assertEquals(event.traceId(), fraudEventCaptor.getValue().traceId());
     }
 
     private TransactionCreatedEvent buildEvent(String eventId, Instant occurredAt) {

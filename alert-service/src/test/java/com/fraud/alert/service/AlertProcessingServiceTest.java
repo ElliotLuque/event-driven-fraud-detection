@@ -13,6 +13,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Instant;
@@ -100,6 +101,22 @@ class AlertProcessingServiceTest {
         verify(alertRepository).save(alertCaptor.capture());
 
         assertEquals("UNSPECIFIED_RULE", alertCaptor.getValue().getReasons());
+    }
+
+    @Test
+    void processShouldPreferEventTraceIdOverMdcTraceId() {
+        FraudDetectedEvent event = buildEvent("evt-3", List.of("HIGH_AMOUNT"));
+        MDC.put("traceId", "mdc-trace-that-must-not-win");
+
+        try {
+            alertProcessingService.process(event);
+        } finally {
+            MDC.remove("traceId");
+        }
+
+        ArgumentCaptor<Alert> alertCaptor = ArgumentCaptor.forClass(Alert.class);
+        verify(alertRepository).save(alertCaptor.capture());
+        assertEquals(event.traceId(), alertCaptor.getValue().getTraceId());
     }
 
     private FraudDetectedEvent buildEvent(String eventId, List<String> reasons) {

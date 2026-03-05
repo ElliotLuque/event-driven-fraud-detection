@@ -181,11 +181,14 @@ public class FraudDetectionService {
     }
 
     private String resolveTraceId(String eventTraceId) {
+        if (eventTraceId != null && !eventTraceId.isBlank()) {
+            return eventTraceId;
+        }
         String mdcTraceId = MDC.get("traceId");
         if (mdcTraceId != null && !mdcTraceId.isBlank()) {
             return mdcTraceId;
         }
-        return eventTraceId;
+        return null;
     }
 
     private boolean tryMarkAsProcessed(String eventId, Instant processedAt) {

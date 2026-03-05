@@ -98,10 +98,13 @@ public class AlertProcessingService {
     }
 
     private static String resolveTraceId(String currentTraceId, String eventTraceId) {
+        if (eventTraceId != null && !eventTraceId.isBlank()) {
+            return eventTraceId;
+        }
         if (currentTraceId != null && !currentTraceId.isBlank()) {
             return currentTraceId;
         }
-        return eventTraceId;
+        return null;
     }
 
     private boolean tryMarkAsProcessed(String eventId, Instant processedAt) {
