@@ -100,7 +100,7 @@ class TransactionFlowIntegrationTest {
 
             assertEquals(response.getBody().transactionId(), publishedEvent.transactionId());
             assertEquals("user-integration", publishedEvent.userId());
-            assertEquals(new BigDecimal("15000.00"), publishedEvent.amount());
+            assertTrue(publishedEvent.amount().compareTo(new BigDecimal("15000.00")) == 0);
         }
     }
 
