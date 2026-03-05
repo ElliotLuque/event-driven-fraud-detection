@@ -8,6 +8,7 @@ import com.fraud.transaction.events.TransactionCreatedEvent;
 import com.fraud.transaction.mapping.TransactionMapper;
 import com.fraud.transaction.outbox.TransactionOutboxService;
 import com.fraud.transaction.repository.TransactionRepository;
+import io.micrometer.tracing.Tracer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -21,6 +22,7 @@ import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -34,6 +36,9 @@ class TransactionServiceTest {
 
     @Mock
     private TransactionMetrics transactionMetrics;
+
+    @Mock
+    private Tracer tracer;
 
     @Spy
     private TransactionMapper transactionMapper = Mappers.getMapper(TransactionMapper.class);
@@ -71,6 +76,8 @@ class TransactionServiceTest {
 
         assertNotNull(response.transactionId());
         assertNotNull(publishedEvent.eventId());
+        assertNotNull(publishedEvent.traceId());
+        assertTrue(publishedEvent.traceId().matches("[0-9a-f]{32}"));
         assertEquals(response.transactionId(), storedTransaction.getId());
         assertEquals(response.transactionId(), publishedEvent.transactionId());
         assertEquals(storedTransaction.getCreatedAt(), response.createdAt());

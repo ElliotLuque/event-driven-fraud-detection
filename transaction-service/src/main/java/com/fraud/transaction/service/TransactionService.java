@@ -7,6 +7,8 @@ import com.fraud.transaction.events.TransactionCreatedEvent;
 import com.fraud.transaction.mapping.TransactionMapper;
 import com.fraud.transaction.outbox.TransactionOutboxService;
 import com.fraud.transaction.repository.TransactionRepository;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -28,17 +30,20 @@ public class TransactionService {
     private final TransactionOutboxService transactionOutboxService;
     private final TransactionMapper transactionMapper;
     private final TransactionMetrics transactionMetrics;
+    private final Tracer tracer;
 
     public TransactionService(
             TransactionRepository transactionRepository,
             TransactionOutboxService transactionOutboxService,
             TransactionMapper transactionMapper,
-            TransactionMetrics transactionMetrics
+            TransactionMetrics transactionMetrics,
+            Tracer tracer
     ) {
         this.transactionRepository = transactionRepository;
         this.transactionOutboxService = transactionOutboxService;
         this.transactionMapper = transactionMapper;
         this.transactionMetrics = transactionMetrics;
+        this.tracer = tracer;
     }
 
     @Transactional
@@ -51,7 +56,7 @@ public class TransactionService {
         String transactionId = UUID.randomUUID().toString();
         Instant now = Instant.now();
         String normalizedChannel = normalizeChannel(channel);
-        String traceId = MDC.get("traceId");
+        String traceId = resolveOrGenerateTraceId();
 
         transactionMetrics.recordTransactionReceived(normalizedChannel);
         log.info("transaction_received",
@@ -120,5 +125,32 @@ public class TransactionService {
             return "unknown";
         }
         return channel.toLowerCase(Locale.ROOT);
+    }
+
+    private String resolveOrGenerateTraceId() {
+        Span currentSpan = tracer.currentSpan();
+        if (currentSpan != null && currentSpan.context() != null) {
+            String traceId = normalizeHex(currentSpan.context().traceId(), 32);
+            if (traceId != null) {
+                return traceId;
+            }
+        }
+        String traceId = MDC.get("traceId");
+        String normalizedMdcTraceId = normalizeHex(traceId, 32);
+        if (normalizedMdcTraceId != null) {
+            return normalizedMdcTraceId;
+        }
+        return UUID.randomUUID().toString().replace("-", "");
+    }
+
+    private String normalizeHex(String value, int expectedLength) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT).replace("-", "");
+        if (normalized.length() != expectedLength || !normalized.matches("[0-9a-f]+")) {
+            return null;
+        }
+        return normalized;
     }
 }

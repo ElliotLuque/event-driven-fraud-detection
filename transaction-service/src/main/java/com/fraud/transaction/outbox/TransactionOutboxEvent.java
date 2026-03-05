@@ -1,13 +1,15 @@
 package com.fraud.transaction.outbox;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 
@@ -33,9 +35,15 @@ public class TransactionOutboxEvent {
     @Column(name = "event_key", nullable = false, updatable = false)
     private String eventKey;
 
-    @Lob
-    @Column(name = "payload", nullable = false, columnDefinition = "TEXT", updatable = false)
-    private String payload;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "payload", nullable = false, columnDefinition = "jsonb", updatable = false)
+    private JsonNode payload;
+
+    @Column(name = "trace_parent", length = 128, updatable = false)
+    private String traceParent;
+
+    @Column(name = "baggage", length = 2048, updatable = false)
+    private String baggage;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 16)
@@ -64,7 +72,9 @@ public class TransactionOutboxEvent {
             String eventId,
             String topic,
             String eventKey,
-            String payload,
+            JsonNode payload,
+            String traceParent,
+            String baggage,
             Instant createdAt
     ) {
         this.id = id;
@@ -72,6 +82,8 @@ public class TransactionOutboxEvent {
         this.topic = topic;
         this.eventKey = eventKey;
         this.payload = payload;
+        this.traceParent = traceParent;
+        this.baggage = baggage;
         this.status = TransactionOutboxStatus.PENDING;
         this.attempts = 0;
         this.nextAttemptAt = createdAt;
@@ -83,10 +95,12 @@ public class TransactionOutboxEvent {
             String eventId,
             String topic,
             String eventKey,
-            String payload,
+            JsonNode payload,
+            String traceParent,
+            String baggage,
             Instant createdAt
     ) {
-        return new TransactionOutboxEvent(id, eventId, topic, eventKey, payload, createdAt);
+        return new TransactionOutboxEvent(id, eventId, topic, eventKey, payload, traceParent, baggage, createdAt);
     }
 
     public void markPublished(Instant publishedAt) {
@@ -118,8 +132,16 @@ public class TransactionOutboxEvent {
         return eventKey;
     }
 
-    public String getPayload() {
+    public JsonNode getPayload() {
         return payload;
+    }
+
+    public String getTraceParent() {
+        return traceParent;
+    }
+
+    public String getBaggage() {
+        return baggage;
     }
 
     public TransactionOutboxStatus getStatus() {

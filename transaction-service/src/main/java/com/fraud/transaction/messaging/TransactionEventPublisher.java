@@ -1,10 +1,12 @@
 package com.fraud.transaction.messaging;
 
 import com.fraud.transaction.events.TransactionCreatedEvent;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -29,12 +31,19 @@ public class TransactionEventPublisher {
 
     public void publish(String topic, String key, TransactionCreatedEvent event) {
         try {
-            kafkaTemplate.send(topic, key, event).get(5, TimeUnit.SECONDS);
+            publishAsync(topic, key, event).get(5, TimeUnit.SECONDS);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Kafka publish interrupted", ex);
         } catch (ExecutionException | TimeoutException ex) {
             throw new IllegalStateException("Unable to publish transaction event", ex);
         }
+    }
+
+    public CompletableFuture<Void> publishAsync(String topic, String key, TransactionCreatedEvent event) {
+        ProducerRecord<String, TransactionCreatedEvent> record = new ProducerRecord<>(topic, key, event);
+        return kafkaTemplate.send(record)
+                .orTimeout(5, TimeUnit.SECONDS)
+                .thenApply(ignored -> null);
     }
 }
