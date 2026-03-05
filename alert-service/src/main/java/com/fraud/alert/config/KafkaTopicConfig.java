@@ -10,18 +10,26 @@ import org.springframework.kafka.config.TopicBuilder;
 public class KafkaTopicConfig {
 
     @Bean
-    public NewTopic fraudDetectedTopic(@Value("${app.kafka.topics.fraud-detected}") String topic) {
+    public NewTopic fraudDetectedTopic(
+            @Value("${app.kafka.topics.fraud-detected}") String topic,
+            @Value("${app.kafka.partitions:18}") int partitions,
+            @Value("${app.kafka.replicas:3}") int replicas
+    ) {
         return TopicBuilder.name(topic)
-                .partitions(6)
-                .replicas(1)
+                .partitions(partitions)
+                .replicas(replicas)
                 .build();
     }
 
     @Bean
-    public NewTopic fraudDetectedDlqTopic(@Value("${app.kafka.topics.fraud-detected}") String topic) {
+    public NewTopic fraudDetectedDlqTopic(
+            @Value("${app.kafka.topics.fraud-detected}") String topic,
+            @Value("${app.kafka.partitions:18}") int partitions,
+            @Value("${app.kafka.replicas:3}") int replicas
+    ) {
         return TopicBuilder.name(topic + ".dlq")
-                .partitions(6)
-                .replicas(1)
+                .partitions(partitions)
+                .replicas(replicas)
                 .build();
     }
 }

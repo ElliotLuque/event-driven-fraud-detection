@@ -37,7 +37,7 @@ spring:
     listener:
       ack-mode: record
       missing-topics-fatal: false
-      concurrency: 6
+      concurrency: ${SPRING_KAFKA_LISTENER_CONCURRENCY:3}
       observation-enabled: true
     admin:
       auto-create: true
@@ -80,5 +80,15 @@ app:
     processed-event-ttl: PT1H
     cleanup-interval: 300000
   kafka:
+    partitions: ${APP_KAFKA_PARTITIONS:18}
+    replicas: ${APP_KAFKA_REPLICAS:3}
     topics:
       fraud-detected: fraud.detected
+
+logging:
+  level:
+    org.apache.kafka.clients.admin.AdminClientConfig: WARN
+    org.apache.kafka.clients.producer.ProducerConfig: WARN
+    org.apache.kafka.clients.consumer.ConsumerConfig: WARN
+    org.apache.kafka.common.utils.AppInfoParser: WARN
+    org.apache.kafka.common.telemetry.internals.KafkaMetricsCollector: WARN

@@ -1,6 +1,5 @@
 server:
   port: ${SERVER_PORT:8080}
-
 spring:
   application:
     name: transaction-service
@@ -34,7 +33,6 @@ spring:
       observation-enabled: true
     admin:
       auto-create: true
-
 management:
   endpoints:
     web:
@@ -54,16 +52,25 @@ management:
   otlp:
     tracing:
       endpoint: ${MANAGEMENT_OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}
-
 app:
   kafka:
+    partitions: ${APP_KAFKA_PARTITIONS:18}
+    replicas: ${APP_KAFKA_REPLICAS:3}
     topics:
       transactions-created: transactions.created
   outbox:
-    relay-interval-ms: ${APP_OUTBOX_RELAY_INTERVAL_MS:200}
+    relay-interval-ms: ${APP_OUTBOX_RELAY_INTERVAL_MS:50}
     relay-initial-delay-ms: ${APP_OUTBOX_RELAY_INITIAL_DELAY_MS:1000}
     relay-batch-size: ${APP_OUTBOX_RELAY_BATCH_SIZE:200}
     retry-delay: ${APP_OUTBOX_RETRY_DELAY:PT2S}
     published-retention: ${APP_OUTBOX_PUBLISHED_RETENTION:PT24H}
     cleanup-interval-ms: ${APP_OUTBOX_CLEANUP_INTERVAL_MS:300000}
     cleanup-initial-delay-ms: ${APP_OUTBOX_CLEANUP_INITIAL_DELAY_MS:60000}
+
+logging:
+  level:
+    org.apache.kafka.clients.admin.AdminClientConfig: WARN
+    org.apache.kafka.clients.producer.ProducerConfig: WARN
+    org.apache.kafka.clients.consumer.ConsumerConfig: WARN
+    org.apache.kafka.common.utils.AppInfoParser: WARN
+    org.apache.kafka.common.telemetry.internals.KafkaMetricsCollector: WARN
