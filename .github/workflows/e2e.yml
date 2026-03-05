@@ -40,6 +40,7 @@ jobs:
           docker pull postgres:16-alpine &
           docker pull maven:3.9.9-eclipse-temurin-21 &
           docker pull eclipse-temurin:21-jre &
+          docker pull mailhog/mailhog:v1.0.1 &
           docker pull alpine/socat:1.7.4.3-r0 &
           docker pull testcontainers/ryuk:0.7.0 &
           wait
@@ -83,4 +84,5 @@ jobs:
         if: failure()
         run: |
           cd e2e-tests
-          docker compose -f docker-compose-e2e.yml logs --tail=100 2>/dev/null || true
+          docker compose -f docker-compose-e2e.yml ps || true
+          docker compose -f docker-compose-e2e.yml logs --tail=300 2>/dev/null || true
