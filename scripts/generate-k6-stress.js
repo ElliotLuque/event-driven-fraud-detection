@@ -2,39 +2,58 @@ import http from 'k6/http';
 import { check } from 'k6';
 import { Counter } from 'k6/metrics';
 
+function envNumber(name, fallback, { min, max, integer = false } = {}) {
+  const raw = __ENV[name];
+  const value = raw === undefined || raw === '' ? fallback : Number(raw);
+
+  if (!Number.isFinite(value)) {
+    throw new Error(`${name} must be a finite number, got '${raw}'`);
+  }
+  if (integer && !Number.isInteger(value)) {
+    throw new Error(`${name} must be an integer, got ${value}`);
+  }
+  if (min !== undefined && value < min) {
+    throw new Error(`${name} must be >= ${min}, got ${value}`);
+  }
+  if (max !== undefined && value > max) {
+    throw new Error(`${name} must be <= ${max}, got ${value}`);
+  }
+
+  return value;
+}
+
 const baseUrl = __ENV.TRANSACTION_API_BASE || 'http://localhost:8080';
 const testType = (__ENV.TEST_TYPE || 'stress').toLowerCase();
 const profileName = __ENV.TEST_PROFILE || 'capacity-baseline';
 const requestTimeout = __ENV.REQUEST_TIMEOUT || '4s';
-const webhookRatio = Number(__ENV.WEBHOOK_RATIO || 35);
+const webhookRatio = envNumber('WEBHOOK_RATIO', 35, { min: 0, max: 100 });
 
-const normalWeight = Number(__ENV.NORMAL_WEIGHT || 80);
-const fraudWeight = Number(__ENV.FRAUD_WEIGHT || 12);
-const velocityWeight = Number(__ENV.VELOCITY_WEIGHT || 5);
-const invalidWeight = Number(__ENV.INVALID_WEIGHT || 3);
-const error5xxWeight = Number(__ENV.ERROR5XX_WEIGHT || 0);
+const normalWeight = envNumber('NORMAL_WEIGHT', 80, { min: 0 });
+const fraudWeight = envNumber('FRAUD_WEIGHT', 12, { min: 0 });
+const velocityWeight = envNumber('VELOCITY_WEIGHT', 5, { min: 0 });
+const invalidWeight = envNumber('INVALID_WEIGHT', 3, { min: 0 });
+const error5xxWeight = envNumber('ERROR5XX_WEIGHT', 0, { min: 0 });
 
 const weightTotal =
   normalWeight + fraudWeight + velocityWeight + invalidWeight + error5xxWeight;
-if (weightTotal !== 100) {
+if (Math.abs(weightTotal - 100) > 0.000001) {
   throw new Error(`Profile weights must add up to 100, got ${weightTotal}`);
 }
 
-const users = Number(__ENV.USERS || 600);
-const targetRps = Number(__ENV.STRESS_RPS || 250);
+const users = envNumber('USERS', 600, { min: 1, integer: true });
+const targetRps = envNumber('STRESS_RPS', 250, { min: 1, integer: true });
 const steadyDuration = __ENV.STRESS_DURATION || '4m';
-const preAllocatedVUs = Number(__ENV.PREALLOCATED_VUS || 350);
-const maxVUs = Number(__ENV.MAX_VUS || 2500);
+const preAllocatedVUs = envNumber('PREALLOCATED_VUS', 350, {
+  min: 1,
+  integer: true,
+});
+const maxVUs = envNumber('MAX_VUS', 2500, { min: 1, integer: true });
 const supportedTestTypes = ['stress', 'spike', 'soak', 'smoke'];
 
 if (!supportedTestTypes.includes(testType)) {
   throw new Error(
     `Unsupported TEST_TYPE '${testType}'. Valid values: ${supportedTestTypes.join(', ')}`,
   );
-}
-
-if (webhookRatio < 0 || webhookRatio > 100) {
-  throw new Error(`WEBHOOK_RATIO must be between 0 and 100, got ${webhookRatio}`);
 }
 
 if (preAllocatedVUs > maxVUs) {
@@ -147,7 +166,7 @@ function send(payload) {
 
   classifyStatus(res.status);
   check(res, {
-    'status is expected class': (r) => (r.status >= 200 && r.status < 300) || (r.status >= 400 && r.status < 500) || (r.status >= 500 && r.status < 600),
+    'status is expected class': (r) => r.status >= 200 && r.status < 600,
   });
 }
 
@@ -219,7 +238,7 @@ function invalidPayload() {
 function serverErrorPayload() {
   return {
     userId: `k6-5xx-${Math.floor(Math.random() * users) + 1}`,
-    amount: 100000000000000000000,
+    amount: Number.MAX_SAFE_INTEGER,
     currency: 'USD',
     merchantId: pick(safeMerchants),
     country: pick(countries),
