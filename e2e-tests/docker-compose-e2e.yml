@@ -79,6 +79,8 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      APP_KAFKA_PARTITIONS: 3
+      APP_KAFKA_REPLICAS: 1
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://localhost:4318/v1/traces
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
@@ -103,6 +105,9 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_LISTENER_CONCURRENCY: 1
+      APP_KAFKA_PARTITIONS: 3
+      APP_KAFKA_REPLICAS: 1
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://localhost:4318/v1/traces
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8081/actuator/health || exit 1"]
@@ -127,6 +132,9 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_LISTENER_CONCURRENCY: 1
+      APP_KAFKA_PARTITIONS: 3
+      APP_KAFKA_REPLICAS: 1
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://localhost:4318/v1/traces
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8082/actuator/health || exit 1"]

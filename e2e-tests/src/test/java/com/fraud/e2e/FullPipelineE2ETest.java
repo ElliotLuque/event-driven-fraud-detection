@@ -44,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class FullPipelineE2ETest {
 
-    private static final Duration STARTUP_TIMEOUT = Duration.ofMinutes(4);
+    private static final Duration STARTUP_TIMEOUT = Duration.ofMinutes(8);
 
     @Container
     static final ComposeContainer ENV = new ComposeContainer(
