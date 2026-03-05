@@ -20,9 +20,60 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  kafka-2:
+    image: confluentinc/cp-kafka:7.6.1
+    depends_on:
+      - zookeeper
+    ports:
+      - "39092:39092"
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:39092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9092,PLAINTEXT_HOST://localhost:39092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  kafka-3:
+    image: confluentinc/cp-kafka:7.6.1
+    depends_on:
+      - zookeeper
+    ports:
+      - "49092:49092"
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:49092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:9092,PLAINTEXT_HOST://localhost:49092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     healthcheck:
@@ -35,16 +86,19 @@ services:
     image: provectuslabs/kafka-ui:latest
     depends_on:
       - kafka
+      - kafka-2
+      - kafka-3
     ports:
       - "8089:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092,kafka-2:9092,kafka-3:9092
       KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
 
   transaction-db:
     image: postgres:16-alpine
     restart: unless-stopped
+    command: ["postgres", "-c", "max_connections=300"]
     environment:
       POSTGRES_DB: transactions
       POSTGRES_USER: postgres
@@ -93,8 +147,14 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      kafka-3:
+        condition: service_healthy
     command:
       - "--kafka.server=kafka:9092"
+      - "--kafka.server=kafka-2:9092"
+      - "--kafka.server=kafka-3:9092"
       - "--log.level=warn"
     ports:
       - "9308:9308"
@@ -153,6 +213,7 @@ services:
     build:
       context: ./transaction-service
     restart: unless-stopped
+    scale: 6
     depends_on:
       kafka:
         condition: service_healthy
@@ -160,14 +221,16 @@ services:
         condition: service_healthy
       alloy:
         condition: service_started
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     environment:
       SERVER_PORT: 8080
       SPRING_DATASOURCE_URL: jdbc:postgresql://transaction-db:5432/transactions
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092,kafka-2:9092,kafka-3:9092
+      APP_KAFKA_PARTITIONS: ${APP_KAFKA_PARTITIONS:-18}
+      APP_KAFKA_REPLICAS: ${APP_KAFKA_REPLICAS:-3}
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://alloy:4318/v1/traces
     logging:
       driver: json-file
@@ -176,10 +239,21 @@ services:
         max-size: "50m"
         max-file: "4"
 
+  transaction-gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - transaction-service
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./observability/nginx/transaction-gateway.conf:/etc/nginx/nginx.conf:ro
+
   fraud-detection-service:
     build:
       context: ./fraud-detection-service
     restart: unless-stopped
+    scale: 6
     depends_on:
       kafka:
         condition: service_healthy
@@ -187,14 +261,17 @@ services:
         condition: service_healthy
       alloy:
         condition: service_started
-    ports:
-      - "8081:8081"
+    expose:
+      - "8081"
     environment:
       SERVER_PORT: 8081
       SPRING_DATASOURCE_URL: jdbc:postgresql://fraud-db:5432/fraud
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092,kafka-2:9092,kafka-3:9092
+      SPRING_KAFKA_LISTENER_CONCURRENCY: ${FRAUD_KAFKA_LISTENER_CONCURRENCY:-3}
+      APP_KAFKA_PARTITIONS: ${APP_KAFKA_PARTITIONS:-18}
+      APP_KAFKA_REPLICAS: ${APP_KAFKA_REPLICAS:-3}
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://alloy:4318/v1/traces
     logging:
       driver: json-file
@@ -202,6 +279,16 @@ services:
         mode: blocking
         max-size: "50m"
         max-file: "4"
+
+  fraud-gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - fraud-detection-service
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./observability/nginx/fraud-gateway.conf:/etc/nginx/nginx.conf:ro
 
   mailhog:
     image: mailhog/mailhog:v1.0.1
@@ -214,6 +301,7 @@ services:
     build:
       context: ./alert-service
     restart: unless-stopped
+    scale: 6
     depends_on:
       kafka:
         condition: service_healthy
@@ -223,14 +311,17 @@ services:
         condition: service_started
       alloy:
         condition: service_started
-    ports:
-      - "8082:8082"
+    expose:
+      - "8082"
     environment:
       SERVER_PORT: 8082
       SPRING_DATASOURCE_URL: jdbc:postgresql://alert-db:5432/alerts
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092,kafka-2:9092,kafka-3:9092
+      SPRING_KAFKA_LISTENER_CONCURRENCY: ${ALERT_KAFKA_LISTENER_CONCURRENCY:-3}
+      APP_KAFKA_PARTITIONS: ${APP_KAFKA_PARTITIONS:-18}
+      APP_KAFKA_REPLICAS: ${APP_KAFKA_REPLICAS:-3}
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://alloy:4318/v1/traces
       SPRING_MAIL_HOST: mailhog
       SPRING_MAIL_PORT: 1025
@@ -244,9 +335,20 @@ services:
         max-size: "50m"
         max-file: "4"
 
+  alert-gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - alert-service
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./observability/nginx/alert-gateway.conf:/etc/nginx/nginx.conf:ro
+
   prometheus:
     image: prom/prometheus:v2.54.1
     restart: unless-stopped
+    user: "0:0"
     depends_on:
       - transaction-service
       - fraud-detection-service
@@ -265,6 +367,7 @@ services:
     volumes:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
   loki:
     image: grafana/loki:3.1.1

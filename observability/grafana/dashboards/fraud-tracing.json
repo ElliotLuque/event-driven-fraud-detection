@@ -1063,25 +1063,10 @@
         "label": "Service",
         "multi": true,
         "name": "service",
-        "options": [
-          {
-            "selected": false,
-            "text": "transaction-service",
-            "value": "transaction-service"
-          },
-          {
-            "selected": false,
-            "text": "fraud-detection-service",
-            "value": "fraud-detection-service"
-          },
-          {
-            "selected": false,
-            "text": "alert-service",
-            "value": "alert-service"
-          }
-        ],
-        "query": "transaction-service,fraud-detection-service,alert-service",
-        "type": "custom"
+        "options": [],
+        "query": "label_values({compose_project=\"event-driven-fraud-detection\",service=~\"(transaction-service|fraud-detection-service|alert-service)\"}, service)",
+        "refresh": 2,
+        "type": "query"
       }
     ]
   },

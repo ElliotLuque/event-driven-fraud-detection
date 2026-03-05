@@ -85,20 +85,12 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 0.67
-              },
-              {
                 "color": "green",
-                "value": 1
+                "value": null
               }
             ]
           },
-          "unit": "percentunit"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -130,13 +122,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(up{job=\"spring-services\"}) / clamp_min(count(up{job=\"spring-services\"}), 1)",
-          "legendFormat": "Service availability",
+          "expr": "sum(up{job=\"spring-services\",application=~\"$application\"})",
+          "legendFormat": "instances up",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Service Availability",
+      "title": "Spring Instances Up",
       "type": "stat"
     },
     {
@@ -915,7 +907,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{compose_project=\"event-driven-fraud-detection\",service=~\"transaction-service|fraud-detection-service|alert-service\"} | json | event=~\".*failed|transaction_event_retry\"",
+          "expr": "{compose_project=\"event-driven-fraud-detection\",service=~\"$service\"} | json | event=~\".*failed|transaction_event_retry\"",
           "queryType": "range",
           "refId": "A"
         }
@@ -986,7 +978,7 @@
         "multi": true,
         "name": "service",
         "options": [],
-        "query": "label_values({compose_project=\"event-driven-fraud-detection\",service=~\"(transaction-service|fraud-detection-service|alert-service)\"}, service)",
+        "query": "label_values({compose_project=\"event-driven-fraud-detection\",service=~\"(transaction-service|fraud-detection-service|alert-service|transaction-gateway|fraud-gateway|alert-gateway)\"}, service)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,

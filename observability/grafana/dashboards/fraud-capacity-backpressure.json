@@ -146,8 +146,12 @@
                 "value": null
               },
               {
+                "color": "yellow",
+                "value": 2
+              },
+              {
                 "color": "green",
-                "value": 1
+                "value": 3
               }
             ]
           },
@@ -203,19 +207,19 @@
             "mode": "thresholds"
           },
           "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          },
+           "thresholds": {
+             "mode": "absolute",
+             "steps": [
+               {
+                 "color": "red",
+                 "value": null
+               },
+               {
+                 "color": "green",
+                 "value": 1
+               }
+             ]
+           },
           "unit": "short"
         },
         "overrides": []
@@ -313,13 +317,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(up{job=\"cadvisor\"})",
-          "legendFormat": "cadvisor up",
+          "expr": "sum(up{job=\"spring-services\"})",
+          "legendFormat": "spring instances up",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "cAdvisor Up",
+      "title": "Spring Instances Up",
       "type": "stat"
     },
     {
