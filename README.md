@@ -1,49 +1,55 @@
 # 🕵️ Event-Driven Fraud Detection
 
-Backend orientado a eventos para registrar transacciones financieras, detectar fraude de forma asíncrona y generar alertas sin bloquear la operación principal.
+Backend orientado a eventos para registrar transacciones financieras, detectar fraude de forma asíncrona y generar alertas sin bloquear la operación principal. Incluye **Transactional Outbox** en `transaction-service`, despliegue local escalado (6 replicas por servicio) y observabilidad end-to-end.
 
 ## 🧱 Arquitectura
 
 ```mermaid
 flowchart TD
-    A[Client / API / Webhook] --> B[transaction-service]
+    A[Client / API / Webhook] --> A1[transaction-gateway :8080]
+    A1 --> B[transaction-service x6]
 
     B --> C[(PostgreSQL<br/>transactions)]
-    B --> D[Kafka topic:<br/>transactions.created]
+    B --> C1[(PostgreSQL<br/>transaction_outbox)]
+    C1 --> D[Outbox Relay]
+    D --> E[Kafka topic:<br/>transactions.created]
 
-    D --> E[fraud-detection-service]
+    E --> F[fraud-detection-service x6]
+    F --> G[(PostgreSQL<br/>fraud_history + processed_events)]
+    F --> H[Kafka topic:<br/>fraud.detected]
 
-    E --> F[(PostgreSQL<br/>fraud_history + processed_events)]
-    E --> G[Kafka topic:<br/>fraud.detected]
-
-    G --> H[alert-service]
-
-    H --> I[(PostgreSQL<br/>alerts + processed_events)]
+    H --> I[alert-service x6]
+    I --> J[(PostgreSQL<br/>alerts + processed_events)]
+    I --> K[Notificaciones<br/>Log + Email]
 ```
 
 ### 🧩 Servicios
 
-1. **transaction-service** (puerto 8080)
+1. **transaction-service** (puerto 8080 vía `transaction-gateway`)
     - Expone API REST y endpoint webhook.
     - Persiste la transacción.
-    - Publica evento `TransactionCreated` en Kafka.
+    - Encola `TransactionCreated` en tabla `transaction_outbox` dentro de la misma transacción de BD.
+    - Un relay asíncrono publica el evento en Kafka con retries y limpieza de eventos publicados.
 
-2. **fraud-detection-service** (puerto 8081)
+2. **fraud-detection-service** (puerto 8081 vía `fraud-gateway`)
     - Consume `TransactionCreated`.
     - Aplica reglas de fraude.
     - Publica `FraudDetected` cuando corresponde.
 
-3. **alert-service** (puerto 8082)
+3. **alert-service** (puerto 8082 vía `alert-gateway`)
     - Consume `FraudDetected`.
     - Registra alertas en BD.
     - Envía notificaciones vía múltiples canales (Log + Email).
 
 ## 🛡️ Resiliencia incluida
 
+- **Transactional Outbox** en `transaction-service` para evitar pérdida de eventos entre BD y Kafka (persistencia transaccional + relay asíncrono).
+- **Relay robusto** con `FOR UPDATE SKIP LOCKED`, retries con backoff, y cleanup programado de eventos publicados.
 - **Idempotencia concurrente** en consumidores (`eventId` en `processed_events`) con inserción atómica (`saveAndFlush`) y manejo de `DataIntegrityViolationException` para eliminar carreras de tipo `check-then-act`.
 - **Retries** de consumidor con backoff fijo (1s, 3 intentos).
 - **Dead Letter Topic (DLQ)** por tópico principal.
 - **Reproceso automático** de eventos desde DLQ.
+- **Cluster Kafka local de 3 brokers** con réplicas para tolerancia a fallos.
 - **Persistencia local** por servicio para mantener responsabilidades separadas.
 
 ## 🧠 Reglas de fraude incluidas
@@ -61,18 +67,23 @@ Una transacción se considera fraude cuando `riskScore >= 70` (configurable con 
 
 ## 📨 Topics Kafka
 
-- `transactions.created` (6 particiones)
-- `fraud.detected` (6 particiones)
+- `transactions.created` (18 particiones por defecto, configurable)
+- `fraud.detected` (18 particiones por defecto, configurable)
 - `transactions.created.dlq`
 - `fraud.detected.dlq`
+
+Configuración de tópicos:
+- `APP_KAFKA_PARTITIONS` (default: `18`)
+- `APP_KAFKA_REPLICAS` (default: `3`)
 
 ## 🧰 Stack
 
 - Java 21 / Spring Boot 3.3.2
 - Spring Data JPA + Spring Kafka
 - PostgreSQL (3 bases de datos dedicadas)
+- NGINX gateways por servicio (balanceo local)
 - Docker Compose
-- **Observabilidad:** Prometheus + Loki + Alloy + Tempo + Grafana
+- **Observabilidad:** Prometheus + Loki + Alloy + Tempo + Grafana + Kafka Exporter + Postgres Exporters + cAdvisor
 - **Testing:** JUnit 5 + Testcontainers + RestAssured + Awaitility
 
 ## 🚀 Ejecutar localmente
@@ -82,7 +93,11 @@ docker compose up -d --build
 ```
 
 > [!NOTE]
-> El primer arranque puede tardar varios minutos por la descarga de imágenes y el build inicial de servicios.
+> El primer arranque puede tardar varios minutos por la descarga de imágenes, el build inicial y el escalado de 6 réplicas por microservicio.
+
+> [!TIP]
+> Si tu máquina tiene recursos limitados, puedes bajar réplicas al arrancar:
+> `docker compose up -d --build --scale transaction-service=2 --scale fraud-detection-service=2 --scale alert-service=2`
 
 Servicios disponibles:
 
@@ -97,6 +112,11 @@ Servicios disponibles:
 | Grafana | http://localhost:3000 (admin/admin) |
 | MailHog (emails) | http://localhost:8025 |
 | Tempo (traces) | http://localhost:3200 |
+| cAdvisor | http://localhost:8088 |
+| Kafka Exporter | http://localhost:9308/metrics |
+| Postgres Exporter (transactions) | http://localhost:9187/metrics |
+| Postgres Exporter (fraud) | http://localhost:9188/metrics |
+| Postgres Exporter (alerts) | http://localhost:9189/metrics |
 
 ## 📣 Notificaciones
 
@@ -107,7 +127,9 @@ El `alert-service` envía notificaciones por dos canales:
 
 ### ✉️ Configurar email
 
-Por defecto está deshabilitado. Para activar:
+En `docker compose`, el canal email queda habilitado por defecto y se enruta a MailHog.
+
+Fuera de Docker Compose, por defecto está deshabilitado. Para activar:
 
 ```yaml
 # alert-service/src/main/resources/application.yml
@@ -147,8 +169,11 @@ El proyecto incluye un stack completo de observabilidad:
 
 1. **Fraud Detection Observability** — throughput HTTP, latencia P95, errores por código HTTP, logs
 2. **Fraud Alerting Live** — alertas en tiempo real, score de riesgo promedio, estado de SLO
-3. **Fraud Tracing** — trazas distribuidas correlacionadas con logs
+3. **Fraud Detection - Distributed Tracing** — trazas distribuidas correlacionadas con logs
 4. **Fraud Alert Triage** — investigación de alertas sobre base de datos real (top razones, timeline, tabla detallada)
+5. **Fraud Kafka Operations** — confiabilidad y latencia por etapa Kafka
+6. **Fraud Throughput Live** — throughput instantáneo por etapa del pipeline
+7. **Fraud Capacity and Backpressure** — lag de consumidores, skew por partición, presión de recursos
 
 ### 🧵 Trazas distribuidas
 
@@ -164,6 +189,8 @@ Puedes inspeccionar la traza completa de una transacción desde `transaction-ser
 Métricas de negocio:
 
 - `fraud_alerts_total` — total de alertas creadas
+- `transaction_events_enqueued_total{outcome}` — eventos encolados en outbox
+- `transaction_events_published_total{outcome}` — publicaciones Kafka desde outbox relay
 - `fraud_alert_risk_score_count` — cantidad de alertas para distribución de riesgo
 - `transactions_received_total` — transacciones entrantes por canal
 - `fraud_decisions_total{decision}` — decisiones clean/fraud
@@ -209,7 +236,7 @@ Esto permite:
 
 Cada transición relevante de estado emite campos `event` y `outcome` para facilitar filtrado y alertas:
 
-- `transaction-service`: `transaction_received`, `transaction_persisted`, `transaction_event_published`, `transaction_event_publish_failed`
+- `transaction-service`: `transaction_received`, `transaction_persisted`, `transaction_event_enqueued`, `transaction_event_enqueue_failed`, `transaction_outbox_batch_processed`, `transaction_outbox_publish_failed`, `transaction_outbox_cleanup`
 - `fraud-detection-service`: `fraud_event_consumed`, `fraud_rules_evaluated`, `fraud_rule_hit`, `fraud_decision_made`, `fraud_event_published`
 - `alert-service`: `alert_event_consumed`, `alert_created`, `notification_attempt`, `notification_result`, `fraud_alert_logged`
 
@@ -281,8 +308,14 @@ bash scripts/single-fraud-scenario.sh
 # Stress test con k6 (modo interactivo si hay TTY)
 bash scripts/run-k6-stress.sh
 
-# Prueba determinística de ambas DLQ (fraud + alert)
+# Fuerza errores para validar envío a DLQ (fraud + alert)
 bash scripts/test-dlq.sh
+
+# Reproceso exitoso de ambas DLQ con validación por métricas
+bash scripts/test-dlq-reprocess.sh
+
+# Migra payload de outbox a jsonb (si actualizas desde versiones anteriores)
+psql "postgresql://postgres:postgres@localhost:5433/transactions" -f scripts/migrate-transaction-outbox-payload-to-jsonb.sql
 
 # Stress test no interactivo con parámetros
 STRESS_RPS=900 STRESS_DURATION=3m PREALLOCATED_VUS=400 MAX_VUS=3000 \
@@ -319,15 +352,16 @@ mvn verify -pl e2e-tests
 ```
 
 > [!IMPORTANT]
-> Requiere Docker ejecutándose. Levanta los 3 servicios + Kafka + PostgreSQL vía Testcontainers y ejecuta 5 escenarios:
+> Requiere Docker ejecutándose. Levanta los 3 servicios + Kafka + PostgreSQL vía Testcontainers y ejecuta 6 escenarios:
 
 1. Transacción fraudulenta genera alerta
 2. Transacción normal NO genera alerta
 3. Webhook endpoint funciona E2E
 4. Múltiples reglas acumulan risk score
 5. Validación de input rechaza requests inválidos
+6. Carga mixta mantiene API saludable y genera alertas esperadas
 
-También incluye un escenario de carga mixta (`mixedLoad_shouldKeepApiHealthyAndGenerateExpectedAlerts`) que:
+El escenario de carga mixta (`mixedLoad_shouldKeepApiHealthyAndGenerateExpectedAlerts`) además:
 
 - envía 120 requests concurrentes (REST + webhook)
 - valida error rate <= 2% y P95 < 2.5s en `transaction-service`
@@ -352,6 +386,7 @@ SPRING_PROFILES_ACTIVE=dev mvn -pl transaction-service spring-boot:run
 
 - **Kafka no responde:** verifica que esté en estado `healthy` en Docker Compose
 - **No ves alertas:** espera ~5-10 segundos (tiempo de procesamiento Kafka) y revisa logs
+- **Alto consumo de recursos local:** reduce réplicas con `--scale` y/o baja `APP_KAFKA_PARTITIONS`.
 - **Tests de integración fallan:** confirma que Docker tiene memoria suficiente
 - **Email no llega:** revisa MailHog en http://localhost:8025
 - **Traces no aparecen:** verifica que Tempo esté healthy y `MANAGEMENT_OTLP_TRACING_ENDPOINT` apunte a `http://tempo:4318/v1/traces`

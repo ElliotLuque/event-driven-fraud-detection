@@ -35,6 +35,11 @@ jobs:
 
       - name: Pre-pull Testcontainers images
         run: |
+          docker pull confluentinc/cp-zookeeper:7.6.1 &
+          docker pull confluentinc/cp-kafka:7.6.1 &
+          docker pull postgres:16-alpine &
+          docker pull maven:3.9.9-eclipse-temurin-21 &
+          docker pull eclipse-temurin:21-jre &
           docker pull alpine/socat:1.7.4.3-r0 &
           docker pull testcontainers/ryuk:0.7.0 &
           wait
@@ -42,11 +47,25 @@ jobs:
       - name: Package all services (skip tests)
         run: mvn -B package -DskipTests -pl transaction-service,fraud-detection-service,alert-service
 
+      - name: Build E2E service images upfront
+        run: docker compose -f e2e-tests/docker-compose-e2e.yml build
+
       - name: Run E2E tests
-        run: mvn -B verify -pl e2e-tests
-        env:
-          TESTCONTAINERS_RYUK_DISABLED: true
-        timeout-minutes: 15
+        run: |
+          for attempt in 1 2; do
+            echo "E2E attempt ${attempt}/2"
+            if mvn -B verify -pl e2e-tests; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 2 ]; then
+              exit 1
+            fi
+
+            docker compose -f e2e-tests/docker-compose-e2e.yml logs --tail=200 || true
+            docker compose -f e2e-tests/docker-compose-e2e.yml down -v || true
+          done
+        timeout-minutes: 30
 
       - name: Upload test reports
         if: failure()

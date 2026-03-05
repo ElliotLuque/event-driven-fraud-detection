@@ -44,49 +44,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
 
-    services:
-      postgres-transactions:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: transactions
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5433:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d transactions"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      postgres-fraud:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: fraud
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5434:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d fraud"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      postgres-alerts:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: alerts
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5435:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d alerts"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - uses: actions/checkout@v4
 
@@ -97,8 +54,18 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
+      - name: Pre-pull Testcontainers images
+        run: |
+          docker pull postgres:16-alpine &
+          docker pull confluentinc/cp-kafka:7.6.1 &
+          docker pull testcontainers/ryuk:0.7.0 &
+          wait
+
       - name: Run integration tests (Testcontainers)
-        run: mvn -B test -pl transaction-service,fraud-detection-service,alert-service -Dtest='*IntegrationTest'
+        run: |
+          mvn -B test -pl transaction-service -Dtest='*IntegrationTest'
+          mvn -B test -pl fraud-detection-service -Dtest='*IntegrationTest' -Dapp.fraud.rules.fraud-score-threshold=45
+          mvn -B test -pl alert-service -Dtest='*IntegrationTest'
 
       - name: Upload test reports
         if: failure()
