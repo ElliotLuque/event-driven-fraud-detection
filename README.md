@@ -1,4 +1,11 @@
-# 🕵️ Event-Driven Fraud Detection
+# Event-Driven Fraud Detection
+
+[![CI](https://github.com/ElliotLuque/event-driven-fraud-detection/actions/workflows/ci.yml/badge.svg)](https://github.com/ElliotLuque/event-driven-fraud-detection/actions/workflows/ci.yml)
+[![E2E Tests](https://github.com/ElliotLuque/event-driven-fraud-detection/actions/workflows/e2e.yml/badge.svg)](https://github.com/ElliotLuque/event-driven-fraud-detection/actions/workflows/e2e.yml)
+[![Java 21](https://img.shields.io/badge/Java-21-007396?logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/21/)
+[![Spring Boot 3.3.2](https://img.shields.io/badge/Spring%20Boot-3.3.2-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![Apache Kafka](https://img.shields.io/badge/Apache%20Kafka-Event%20Driven-231F20?logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
+[![Docker Compose](https://img.shields.io/badge/Docker%20Compose-Local%20Orchestration-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
 
 Backend orientado a eventos para registrar transacciones financieras, detectar fraude de forma asíncrona y generar alertas sin bloquear la operación principal. Incluye **Transactional Outbox** en `transaction-service`, despliegue local escalado (6 replicas por servicio) y observabilidad end-to-end.
 
@@ -26,20 +33,20 @@ flowchart TD
 ### 🧩 Servicios
 
 1. **transaction-service** (puerto 8080 vía `transaction-gateway`)
-    - Expone API REST y endpoint webhook.
-    - Persiste la transacción.
-    - Encola `TransactionCreated` en tabla `transaction_outbox` dentro de la misma transacción de BD.
-    - Un relay asíncrono publica el evento en Kafka con retries y limpieza de eventos publicados.
+   - Expone API REST y endpoint webhook.
+   - Persiste la transacción.
+   - Encola `TransactionCreated` en tabla `transaction_outbox` dentro de la misma transacción de BD.
+   - Un relay asíncrono publica el evento en Kafka con retries y limpieza de eventos publicados.
 
 2. **fraud-detection-service** (puerto 8081 vía `fraud-gateway`)
-    - Consume `TransactionCreated`.
-    - Aplica reglas de fraude.
-    - Publica `FraudDetected` cuando corresponde.
+   - Consume `TransactionCreated`.
+   - Aplica reglas de fraude.
+   - Publica `FraudDetected` cuando corresponde.
 
 3. **alert-service** (puerto 8082 vía `alert-gateway`)
-    - Consume `FraudDetected`.
-    - Registra alertas en BD.
-    - Envía notificaciones vía múltiples canales (Log + Email).
+   - Consume `FraudDetected`.
+   - Registra alertas en BD.
+   - Envía notificaciones vía múltiples canales (Log + Email).
 
 ## 🛡️ Resiliencia incluida
 
@@ -54,12 +61,12 @@ flowchart TD
 
 ## 🧠 Reglas de fraude incluidas
 
-| Regla | Condición | Score |
-|-------|-----------|-------|
-| `HIGH_AMOUNT` | monto > $10,000 | +45 |
-| `HIGH_VELOCITY` | 5+ transacciones en 1 minuto | +35 |
-| `COUNTRY_CHANGE_IN_SHORT_WINDOW` | cambio de país en 30 min | +30 |
-| `HIGH_RISK_MERCHANT` | merchant en lista: MRC-999, MRC-666, MRC-404 | +25 |
+| Regla                            | Condición                                    | Score |
+| -------------------------------- | -------------------------------------------- | ----- |
+| `HIGH_AMOUNT`                    | monto > $10,000                              | +45   |
+| `HIGH_VELOCITY`                  | 5+ transacciones en 1 minuto                 | +35   |
+| `COUNTRY_CHANGE_IN_SHORT_WINDOW` | cambio de país en 30 min                     | +30   |
+| `HIGH_RISK_MERCHANT`             | merchant en lista: MRC-999, MRC-666, MRC-404 | +25   |
 
 El score final se calcula por suma de reglas y se limita a 100.
 
@@ -73,12 +80,13 @@ Una transacción se considera fraude cuando `riskScore >= 70` (configurable con 
 - `fraud.detected.dlq`
 
 Configuración de tópicos:
+
 - `APP_KAFKA_PARTITIONS` (default: `18`)
 - `APP_KAFKA_REPLICAS` (default: `3`)
 
 ## 🧰 Stack
 
-- Java 21 / Spring Boot 3.3.2
+- Java 21 / Spring Boot 3.3
 - Spring Data JPA + Spring Kafka
 - PostgreSQL (3 bases de datos dedicadas)
 - NGINX gateways por servicio (balanceo local)
@@ -101,22 +109,22 @@ docker compose up -d --build
 
 Servicios disponibles:
 
-| Servicio | URL |
-|----------|-----|
-| Transaction Service | http://localhost:8080 |
-| Fraud Detection Service | http://localhost:8081 |
-| Alert Service | http://localhost:8082 |
-| Kafka UI | http://localhost:8089 |
-| Prometheus | http://localhost:9090 |
-| Loki API | http://localhost:3100 |
-| Grafana | http://localhost:3000 (admin/admin) |
-| MailHog (emails) | http://localhost:8025 |
-| Tempo (traces) | http://localhost:3200 |
-| cAdvisor | http://localhost:8088 |
-| Kafka Exporter | http://localhost:9308/metrics |
-| Postgres Exporter (transactions) | http://localhost:9187/metrics |
-| Postgres Exporter (fraud) | http://localhost:9188/metrics |
-| Postgres Exporter (alerts) | http://localhost:9189/metrics |
+| Servicio                         | URL                                 |
+| -------------------------------- | ----------------------------------- |
+| Transaction Service              | http://localhost:8080               |
+| Fraud Detection Service          | http://localhost:8081               |
+| Alert Service                    | http://localhost:8082               |
+| Kafka UI                         | http://localhost:8089               |
+| Prometheus                       | http://localhost:9090               |
+| Loki API                         | http://localhost:3100               |
+| Grafana                          | http://localhost:3000 (admin/admin) |
+| MailHog (emails)                 | http://localhost:8025               |
+| Tempo (traces)                   | http://localhost:3200               |
+| cAdvisor                         | http://localhost:8088               |
+| Kafka Exporter                   | http://localhost:9308/metrics       |
+| Postgres Exporter (transactions) | http://localhost:9187/metrics       |
+| Postgres Exporter (fraud)        | http://localhost:9188/metrics       |
+| Postgres Exporter (alerts)       | http://localhost:9189/metrics       |
 
 ## 📣 Notificaciones
 
@@ -151,6 +159,7 @@ APP_NOTIFICATION_EMAIL_TO=security@tu-dominio.com
 **MailHog** está incluido en Docker Compose para desarrollo local — captura todos los emails enviados sin necesidad de un servidor SMTP real. Accede a http://localhost:8025 para ver los emails.
 
 Los emails incluyen un template HTML profesional con:
+
 - Color de severidad según risk score (rojo/naranja/amarillo/verde)
 - Información de la transacción
 - Lista de reglas que dispararon la alerta
@@ -178,6 +187,7 @@ El proyecto incluye un stack completo de observabilidad:
 ### 🧵 Trazas distribuidas
 
 La plataforma propaga `traceId` y `spanId` a través de:
+
 - Requests HTTP (OpenTelemetry bridge)
 - Mensajes Kafka (`observation-enabled`)
 - Logs JSON estructurados
@@ -228,6 +238,7 @@ Todos los servicios emiten logs en formato JSON estructurado:
 ```
 
 Esto permite:
+
 - Filtrado eficiente en Loki por labels (`service`) y fields (`level`, `traceId`)
 - Correlación logs <-> trazas en Grafana
 - Consultas avanzadas con LogQL
@@ -338,6 +349,7 @@ mvn test -pl alert-service
 ```
 
 Incluye:
+
 - Tests de reglas de fraude (`fraud-detection-service`)
 - Tests de procesamiento de alertas (`alert-service`)
 - Tests de controladores REST
