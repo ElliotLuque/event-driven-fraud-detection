@@ -8,6 +8,8 @@ import org.slf4j.MDC;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 @Component
@@ -24,7 +26,17 @@ public class TransactionsCreatedDlqConsumer {
     }
 
     @KafkaListener(topics = "${app.kafka.topics.transactions-created}.dlq")
-    public void consume(TransactionCreatedEvent event) {
+    public void consume(List<TransactionCreatedEvent> events) {
+        if (events == null || events.isEmpty()) {
+            return;
+        }
+
+        for (TransactionCreatedEvent event : events) {
+            consumeSingle(event);
+        }
+    }
+
+    private void consumeSingle(TransactionCreatedEvent event) {
         dlqMetrics.recordReceived();
 
         String previousTraceId = MDC.get("traceId");

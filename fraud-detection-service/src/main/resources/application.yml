@@ -21,6 +21,7 @@ spring:
     consumer:
       group-id: fraud-detection-service
       auto-offset-reset: earliest
+      max-poll-records: ${SPRING_KAFKA_CONSUMER_MAX_POLL_RECORDS:500}
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
@@ -35,7 +36,8 @@ spring:
     template:
       observation-enabled: true
     listener:
-      ack-mode: record
+      type: batch
+      ack-mode: batch
       missing-topics-fatal: false
       concurrency: ${SPRING_KAFKA_LISTENER_CONCURRENCY:12}
       observation-enabled: true

@@ -8,6 +8,8 @@ import org.slf4j.MDC;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 @Component
@@ -24,7 +26,17 @@ public class FraudDetectedDlqConsumer {
     }
 
     @KafkaListener(topics = "${app.kafka.topics.fraud-detected}.dlq")
-    public void consume(FraudDetectedEvent event) {
+    public void consume(List<FraudDetectedEvent> events) {
+        if (events == null || events.isEmpty()) {
+            return;
+        }
+
+        for (FraudDetectedEvent event : events) {
+            consumeSingle(event);
+        }
+    }
+
+    private void consumeSingle(FraudDetectedEvent event) {
         dlqMetrics.recordReceived();
 
         String previousTraceId = MDC.get("traceId");

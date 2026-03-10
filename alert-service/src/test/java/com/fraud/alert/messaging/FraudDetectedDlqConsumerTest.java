@@ -9,6 +9,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.Mockito.doThrow;
@@ -31,7 +32,7 @@ class FraudDetectedDlqConsumerTest {
     void consumeShouldReprocessEventWhenProcessingSucceeds() {
         FraudDetectedEvent event = buildEvent();
 
-        consumer.consume(event);
+        consumer.consume(List.of(event));
 
         verify(dlqMetrics).recordReceived();
         verify(alertProcessingService).process(event);
@@ -43,7 +44,7 @@ class FraudDetectedDlqConsumerTest {
         FraudDetectedEvent event = buildEvent();
         doThrow(new IllegalStateException("boom")).when(alertProcessingService).process(event);
 
-        consumer.consume(event);
+        consumer.consume(List.of(event));
 
         verify(dlqMetrics).recordReceived();
         verify(alertProcessingService).process(event);
@@ -52,7 +53,7 @@ class FraudDetectedDlqConsumerTest {
 
     @Test
     void consumeShouldRecordFailureAndSkipProcessingWhenEventIsNull() {
-        consumer.consume(null);
+        consumer.consume(Collections.singletonList(null));
 
         verify(dlqMetrics).recordReceived();
         verify(dlqMetrics).recordFailed();
