@@ -37,7 +37,7 @@ spring:
     listener:
       ack-mode: record
       missing-topics-fatal: false
-      concurrency: ${SPRING_KAFKA_LISTENER_CONCURRENCY:3}
+      concurrency: ${SPRING_KAFKA_LISTENER_CONCURRENCY:12}
       observation-enabled: true
     admin:
       auto-create: true
@@ -51,6 +51,7 @@ management:
     distribution:
       percentiles-histogram:
         http.server.requests: true
+        fraud_pipeline_e2e_latency: true
       slo:
         http.server.requests: 50ms,100ms,200ms,500ms,1s,2s,5s
     tags:
@@ -69,6 +70,20 @@ app:
     topics:
       transactions-created: transactions.created
       fraud-detected: fraud.detected
+  outbox:
+    relay-interval-ms: ${APP_OUTBOX_RELAY_INTERVAL_MS:50}
+    relay-initial-delay-ms: ${APP_OUTBOX_RELAY_INITIAL_DELAY_MS:1000}
+    relay-batch-size: ${APP_OUTBOX_RELAY_BATCH_SIZE:200}
+    retry-delay: ${APP_OUTBOX_RETRY_DELAY:PT2S}
+    published-retention: ${APP_OUTBOX_PUBLISHED_RETENTION:PT24H}
+    cleanup-interval-ms: ${APP_OUTBOX_CLEANUP_INTERVAL_MS:300000}
+    cleanup-initial-delay-ms: ${APP_OUTBOX_CLEANUP_INITIAL_DELAY_MS:60000}
+  inbox:
+    processor:
+      interval-ms: ${APP_INBOX_PROCESSOR_INTERVAL_MS:1}
+      initial-delay-ms: ${APP_INBOX_PROCESSOR_INITIAL_DELAY_MS:0}
+      batch-size: ${APP_INBOX_PROCESSOR_BATCH_SIZE:512}
+      workers: ${APP_INBOX_PROCESSOR_WORKERS:8}
   data-retention:
     processed-event-ttl: PT1H
     transaction-history-ttl: PT1H
