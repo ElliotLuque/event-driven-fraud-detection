@@ -118,7 +118,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(clamp_min(kafka_topic_partition_current_offset{topic=~\"$topic\",topic!=\"__consumer_offsets\"} - on(topic, partition, instance, job) group_left(consumergroup) kafka_consumergroup_current_offset{consumergroup=~\"$consumergroup\",topic=~\"$topic\"}, 0))",
+          "expr": "sum(clamp_min(max by (topic, partition) (kafka_topic_partition_current_offset{topic=~\"$topic\",topic!=\"__consumer_offsets\"}) - on(topic, partition) group_left(consumergroup) max by (topic, partition, consumergroup) (kafka_consumergroup_current_offset{consumergroup=~\"$consumergroup\",topic=~\"$topic\"}), 0))",
           "legendFormat": "lag",
           "range": true,
           "refId": "A"
@@ -597,7 +597,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum by (consumergroup, topic) (clamp_min(kafka_topic_partition_current_offset{topic=~\"$topic\",topic!=\"__consumer_offsets\"} - on(topic, partition, instance, job) group_left(consumergroup) kafka_consumergroup_current_offset{consumergroup=~\"$consumergroup\",topic=~\"$topic\"}, 0))",
+          "expr": "sum by (consumergroup, topic) (clamp_min(max by (topic, partition) (kafka_topic_partition_current_offset{topic=~\"$topic\",topic!=\"__consumer_offsets\"}) - on(topic, partition) group_left(consumergroup) max by (topic, partition, consumergroup) (kafka_consumergroup_current_offset{consumergroup=~\"$consumergroup\",topic=~\"$topic\"}), 0))",
           "legendFormat": "{{consumergroup}} / {{topic}}",
           "range": true,
           "refId": "A"
@@ -657,7 +657,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "topk(12, sum by (topic, partition) (rate(kafka_topic_partition_current_offset{topic=~\"$topic\",topic!~\"__consumer_offsets\"}[$__rate_interval])))",
+          "expr": "topk(12, max by (topic, partition) (clamp_min(rate(kafka_topic_partition_current_offset{topic=~\"$topic\",topic!~\"__consumer_offsets\"}[$__rate_interval]), 0)))",
           "legendFormat": "{{topic}} p{{partition}}",
           "range": true,
           "refId": "A"
@@ -839,21 +839,21 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(pg_stat_database_xact_commit{datname=~\"$database\"}[$__rate_interval])) by (datname)",
+          "expr": "sum by (datname) (max without (instance, job, pod) (clamp_min(rate(pg_stat_database_xact_commit{datname=~\"$database\"}[$__rate_interval]), 0)))",
           "legendFormat": "commit - {{datname}}",
           "range": true,
           "refId": "A"
         },
         {
           "editorMode": "code",
-          "expr": "sum(rate(pg_stat_database_xact_rollback{datname=~\"$database\"}[$__rate_interval])) by (datname)",
+          "expr": "sum by (datname) (max without (instance, job, pod) (clamp_min(rate(pg_stat_database_xact_rollback{datname=~\"$database\"}[$__rate_interval]), 0)))",
           "legendFormat": "rollback - {{datname}}",
           "range": true,
           "refId": "B"
         },
         {
           "editorMode": "code",
-          "expr": "sum(rate(pg_stat_database_deadlocks{datname=~\"$database\"}[$__rate_interval])) by (datname)",
+          "expr": "sum by (datname) (max without (instance, job, pod) (clamp_min(rate(pg_stat_database_deadlocks{datname=~\"$database\"}[$__rate_interval]), 0)))",
           "legendFormat": "deadlocks - {{datname}}",
           "range": true,
           "refId": "C"
