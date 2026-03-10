@@ -1,6 +1,6 @@
 services:
   kafka:
-    image: confluentinc/cp-kafka:7.6.1
+    image: confluentinc/cp-kafka:7.7.1
     ports:
       - "29092:29092"
     environment:
@@ -29,7 +29,7 @@ services:
       timeout: 10s
       retries: 10
   kafka-2:
-    image: confluentinc/cp-kafka:7.6.1
+    image: confluentinc/cp-kafka:7.7.1
     ports:
       - "39092:39092"
     environment:
@@ -58,7 +58,7 @@ services:
       timeout: 10s
       retries: 10
   kafka-3:
-    image: confluentinc/cp-kafka:7.6.1
+    image: confluentinc/cp-kafka:7.7.1
     ports:
       - "49092:49092"
     environment:
@@ -87,7 +87,7 @@ services:
       timeout: 10s
       retries: 10
   kafka-ui:
-    image: provectuslabs/kafka-ui:latest
+    image: provectuslabs/kafka-ui:v0.7.2
     depends_on:
       - kafka
       - kafka-2
@@ -98,7 +98,7 @@ services:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092,kafka-2:9092,kafka-3:9092
   transaction-db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     command: ["postgres", "-c", "max_connections=${TRANSACTION_DB_MAX_CONNECTIONS:-300}"]
     environment:
@@ -113,7 +113,7 @@ services:
       timeout: 5s
       retries: 5
   fraud-db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     command: ["postgres", "-c", "max_connections=${FRAUD_DB_MAX_CONNECTIONS:-300}"]
     environment:
@@ -128,7 +128,7 @@ services:
       timeout: 5s
       retries: 5
   alert-db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     command: ["postgres", "-c", "max_connections=${ALERT_DB_MAX_CONNECTIONS:-300}"]
     environment:
@@ -143,7 +143,7 @@ services:
       timeout: 5s
       retries: 5
   kafka-exporter:
-    image: danielqsj/kafka-exporter:v1.8.0
+    image: danielqsj/kafka-exporter:v1.9.0
     restart: unless-stopped
     depends_on:
       kafka:
@@ -160,7 +160,7 @@ services:
     ports:
       - "9308:9308"
   transaction-db-exporter:
-    image: prometheuscommunity/postgres-exporter:v0.15.0
+    image: prometheuscommunity/postgres-exporter:v0.17.1
     restart: unless-stopped
     depends_on:
       transaction-db:
@@ -170,7 +170,7 @@ services:
     ports:
       - "9187:9187"
   fraud-db-exporter:
-    image: prometheuscommunity/postgres-exporter:v0.15.0
+    image: prometheuscommunity/postgres-exporter:v0.17.1
     restart: unless-stopped
     depends_on:
       fraud-db:
@@ -180,7 +180,7 @@ services:
     ports:
       - "9188:9187"
   alert-db-exporter:
-    image: prometheuscommunity/postgres-exporter:v0.15.0
+    image: prometheuscommunity/postgres-exporter:v0.17.1
     restart: unless-stopped
     depends_on:
       alert-db:
@@ -190,7 +190,7 @@ services:
     ports:
       - "9189:9187"
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    image: gcr.io/cadvisor/cadvisor:v0.50.0
     restart: unless-stopped
     privileged: true
     command:
@@ -237,7 +237,7 @@ services:
         max-size: "100m"
         max-file: "8"
   transaction-gateway:
-    image: nginx:1.27-alpine
+    image: nginx:1.27.4-alpine
     restart: unless-stopped
     depends_on:
       - transaction-service
@@ -285,7 +285,7 @@ services:
         max-size: "100m"
         max-file: "8"
   fraud-gateway:
-    image: nginx:1.27-alpine
+    image: nginx:1.27.4-alpine
     restart: unless-stopped
     depends_on:
       - fraud-detection-service
@@ -346,7 +346,7 @@ services:
         max-size: "100m"
         max-file: "8"
   alert-gateway:
-    image: nginx:1.27-alpine
+    image: nginx:1.27.4-alpine
     restart: unless-stopped
     depends_on:
       - alert-service
@@ -355,7 +355,7 @@ services:
     volumes:
       - ./observability/nginx/alert-gateway.conf:/etc/nginx/nginx.conf:ro
   prometheus:
-    image: prom/prometheus:v2.54.1
+    image: prom/prometheus:v2.55.1
     restart: unless-stopped
     user: "0:0"
     depends_on:
@@ -378,7 +378,7 @@ services:
       - ./observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
   loki:
-    image: grafana/loki:3.1.1
+    image: grafana/loki:3.2.1
     restart: unless-stopped
     ports:
       - "3100:3100"
@@ -387,7 +387,7 @@ services:
       - ./observability/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
       - loki-data:/loki
   alloy:
-    image: grafana/alloy:v1.13.0
+    image: grafana/alloy:v1.13.1
     restart: unless-stopped
     depends_on:
       - loki
@@ -404,7 +404,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - alloy-data:/var/lib/alloy/data
   tempo:
-    image: grafana/tempo:2.5.0
+    image: grafana/tempo:2.6.1
     restart: unless-stopped
     command: ["-config.file=/etc/tempo/tempo-config.yml"]
     ports:
@@ -415,7 +415,7 @@ services:
       - ./observability/tempo/tempo-config.yml:/etc/tempo/tempo-config.yml:ro
       - tempo-data:/var/tempo
   grafana:
-    image: grafana/grafana:11.1.4
+    image: grafana/grafana:11.3.1
     restart: unless-stopped
     depends_on:
       - prometheus
