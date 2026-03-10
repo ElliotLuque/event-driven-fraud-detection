@@ -2,9 +2,11 @@ package com.fraud.detection.messaging;
 
 import com.fraud.detection.events.FraudDetectedEvent;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.support.SendResult;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -25,12 +27,17 @@ public class FraudEventPublisher {
 
     public void publish(FraudDetectedEvent event) {
         try {
-            kafkaTemplate.send(topic, event.transactionId(), event).get(5, TimeUnit.SECONDS);
+            publishAsync(topic, event.transactionId(), event).get(5, TimeUnit.SECONDS);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Kafka publish interrupted", ex);
         } catch (ExecutionException | TimeoutException ex) {
             throw new IllegalStateException("Unable to publish fraud event", ex);
         }
+    }
+
+    public CompletableFuture<Void> publishAsync(String topic, String key, FraudDetectedEvent event) {
+        CompletableFuture<SendResult<String, FraudDetectedEvent>> future = kafkaTemplate.send(topic, key, event);
+        return future.orTimeout(5, TimeUnit.SECONDS).thenApply(ignored -> null);
     }
 }

@@ -13,6 +13,7 @@ public interface FraudDetectedEventMapper {
 
     @Mapping(target = "eventId", source = "eventId")
     @Mapping(target = "occurredAt", source = "occurredAt")
+    @Mapping(target = "transactionOccurredAt", source = "event.occurredAt")
     @Mapping(target = "transactionId", source = "event.transactionId")
     @Mapping(target = "traceId", source = "traceId")
     @Mapping(target = "userId", source = "event.userId")

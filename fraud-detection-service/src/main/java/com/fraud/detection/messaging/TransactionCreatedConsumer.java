@@ -1,7 +1,7 @@
 package com.fraud.detection.messaging;
 
 import com.fraud.detection.events.TransactionCreatedEvent;
-import com.fraud.detection.service.FraudDetectionService;
+import com.fraud.detection.service.FraudInboxIngestionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -17,10 +17,10 @@ public class TransactionCreatedConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(TransactionCreatedConsumer.class);
 
-    private final FraudDetectionService fraudDetectionService;
+    private final FraudInboxIngestionService fraudInboxIngestionService;
 
-    public TransactionCreatedConsumer(FraudDetectionService fraudDetectionService) {
-        this.fraudDetectionService = fraudDetectionService;
+    public TransactionCreatedConsumer(FraudInboxIngestionService fraudInboxIngestionService) {
+        this.fraudInboxIngestionService = fraudInboxIngestionService;
     }
 
     @KafkaListener(topics = "${app.kafka.topics.transactions-created}")
@@ -53,7 +53,7 @@ public class TransactionCreatedConsumer {
         }
 
         try {
-            log.info("transaction_event_received",
+            log.debug("transaction_event_received",
                     kv("event", "transaction_event_received"),
                     kv("outcome", "success"),
                     kv("eventId", event.eventId()),
@@ -63,11 +63,11 @@ public class TransactionCreatedConsumer {
                     kv("offset", offset)
             );
 
-            fraudDetectionService.process(event);
+            boolean accepted = fraudInboxIngestionService.ingest(event);
 
-            log.info("transaction_event_processed",
-                    kv("event", "transaction_event_processed"),
-                    kv("outcome", "success"),
+            log.debug("transaction_event_enqueued",
+                    kv("event", "transaction_event_enqueued"),
+                    kv("outcome", accepted ? "success" : "duplicate"),
                     kv("eventId", event.eventId()),
                     kv("transactionId", event.transactionId()),
                     kv("topic", topic),

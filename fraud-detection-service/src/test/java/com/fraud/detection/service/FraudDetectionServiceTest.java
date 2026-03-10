@@ -3,13 +3,13 @@ package com.fraud.detection.service;
 import com.fraud.detection.config.FraudRulesProperties;
 import com.fraud.detection.events.FraudDetectedEvent;
 import com.fraud.detection.events.TransactionCreatedEvent;
+import com.fraud.detection.inbox.FraudInboxEvent;
+import com.fraud.detection.inbox.FraudInboxRepository;
 import com.fraud.detection.mapping.FraudDetectedEventMapper;
 import com.fraud.detection.mapping.UserTransactionHistoryMapper;
-import com.fraud.detection.messaging.FraudEventPublisher;
 import com.fraud.detection.model.PaymentMethod;
-import com.fraud.detection.model.ProcessedEvent;
 import com.fraud.detection.model.UserTransactionHistory;
-import com.fraud.detection.repository.ProcessedEventRepository;
+import com.fraud.detection.outbox.FraudOutboxService;
 import com.fraud.detection.repository.UserTransactionHistoryRepository;
 import com.fraud.detection.rules.FraudEvaluation;
 import com.fraud.detection.rules.FraudRulesEngine;
@@ -21,7 +21,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mapstruct.factory.Mappers;
 import org.slf4j.MDC;
-import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -30,7 +29,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -38,13 +36,14 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class FraudDetectionServiceTest {
 
     @Mock
-    private ProcessedEventRepository processedEventRepository;
+    private FraudInboxRepository fraudInboxRepository;
 
     @Mock
     private UserTransactionHistoryRepository historyRepository;
@@ -53,7 +52,7 @@ class FraudDetectionServiceTest {
     private FraudRulesEngine fraudRulesEngine;
 
     @Mock
-    private FraudEventPublisher fraudEventPublisher;
+    private FraudOutboxService fraudOutboxService;
 
     @Mock
     private FraudDetectionMetrics fraudDetectionMetrics;
@@ -70,10 +69,10 @@ class FraudDetectionServiceTest {
         userTransactionHistoryMapper = Mappers.getMapper(UserTransactionHistoryMapper.class);
         fraudDetectedEventMapper = Mappers.getMapper(FraudDetectedEventMapper.class);
         fraudDetectionService = new FraudDetectionService(
-                processedEventRepository,
+                fraudInboxRepository,
                 historyRepository,
                 fraudRulesEngine,
-                fraudEventPublisher,
+                fraudOutboxService,
                 rules,
                 userTransactionHistoryMapper,
                 fraudDetectedEventMapper,
@@ -84,14 +83,17 @@ class FraudDetectionServiceTest {
     @Test
     void processShouldSkipWhenEventWasAlreadyProcessed() {
         TransactionCreatedEvent event = buildEvent("evt-1", Instant.parse("2026-01-01T10:00:00Z"));
-        when(processedEventRepository.saveAndFlush(any(ProcessedEvent.class)))
-                .thenThrow(new DataIntegrityViolationException("duplicate"));
+        when(fraudInboxRepository.insertReceivedIfAbsent(eq(event.eventId()), eq(event.transactionId()), eq(event.traceId()), eq("INLINE_PROCESSING"), any(Instant.class), any(Instant.class)))
+                .thenReturn(0);
+        when(fraudInboxRepository.lockByEventId(event.eventId()))
+                .thenReturn(Optional.of(buildInboxEvent(event, Instant.parse("2026-01-01T10:00:00Z"), true)));
 
         fraudDetectionService.process(event);
 
-        verify(processedEventRepository).saveAndFlush(any(ProcessedEvent.class));
-        verifyNoInteractions(historyRepository, fraudRulesEngine, fraudEventPublisher);
-        verify(processedEventRepository, never()).save(any(ProcessedEvent.class));
+        verify(fraudInboxRepository).insertReceivedIfAbsent(eq(event.eventId()), eq(event.transactionId()), eq(event.traceId()), eq("INLINE_PROCESSING"), any(Instant.class), any(Instant.class));
+        verify(fraudInboxRepository).lockByEventId(event.eventId());
+        verify(fraudInboxRepository, never()).markProcessed(any(), any());
+        verifyNoInteractions(historyRepository, fraudRulesEngine, fraudOutboxService);
     }
 
     @Test
@@ -104,6 +106,9 @@ class FraudDetectionServiceTest {
         when(historyRepository.findTopByUserIdOrderByOccurredAtDesc("user-1")).thenReturn(Optional.empty());
         when(fraudRulesEngine.evaluate(event, Optional.empty(), 2L, occurredAt))
                 .thenReturn(new FraudEvaluation(false, 0, List.of()));
+        when(fraudInboxRepository.insertReceivedIfAbsent(eq(event.eventId()), eq(event.transactionId()), eq(event.traceId()), eq("INLINE_PROCESSING"), eq(occurredAt), any(Instant.class)))
+                .thenReturn(1);
+        when(fraudInboxRepository.markProcessed(eq(event.eventId()), any(Instant.class))).thenReturn(1);
 
         fraudDetectionService.process(event);
 
@@ -111,19 +116,16 @@ class FraudDetectionServiceTest {
         verify(historyRepository).save(historyCaptor.capture());
         UserTransactionHistory storedHistory = historyCaptor.getValue();
 
-        ArgumentCaptor<ProcessedEvent> processedCaptor = ArgumentCaptor.forClass(ProcessedEvent.class);
-        verify(processedEventRepository).saveAndFlush(processedCaptor.capture());
-        ProcessedEvent processedEvent = processedCaptor.getValue();
+        verify(fraudInboxRepository).insertReceivedIfAbsent(eq(event.eventId()), eq(event.transactionId()), eq(event.traceId()), eq("INLINE_PROCESSING"), eq(occurredAt), any(Instant.class));
+        verify(fraudInboxRepository).markProcessed(eq(event.eventId()), any(Instant.class));
 
         verify(fraudRulesEngine).evaluate(event, Optional.empty(), 2L, occurredAt);
-        verify(fraudEventPublisher, never()).publish(any(FraudDetectedEvent.class));
+        verify(fraudOutboxService, never()).enqueue(any(FraudDetectedEvent.class));
 
         assertEquals(event.transactionId(), storedHistory.getTransactionId());
         assertEquals(event.userId(), storedHistory.getUserId());
         assertEquals(occurredAt, storedHistory.getOccurredAt());
-
-        assertEquals(event.eventId(), processedEvent.getEventId());
-        assertEquals(occurredAt, processedEvent.getProcessedAt());
+        verifyNoMoreInteractions(fraudInboxRepository);
     }
 
     @Test
@@ -135,26 +137,23 @@ class FraudDetectionServiceTest {
         when(historyRepository.findTopByUserIdOrderByOccurredAtDesc("user-1")).thenReturn(Optional.empty());
         when(fraudRulesEngine.evaluate(eq(event), eq(Optional.empty()), eq(0L), any(Instant.class)))
                 .thenReturn(new FraudEvaluation(true, 80, List.of("HIGH_AMOUNT", "HIGH_RISK_MERCHANT")));
+        when(fraudInboxRepository.insertReceivedIfAbsent(eq(event.eventId()), eq(event.transactionId()), eq(event.traceId()), eq("INLINE_PROCESSING"), any(Instant.class), any(Instant.class)))
+                .thenReturn(1);
+        when(fraudInboxRepository.markProcessed(eq(event.eventId()), any(Instant.class))).thenReturn(1);
 
         fraudDetectionService.process(event);
-        Instant after = Instant.now();
 
         ArgumentCaptor<UserTransactionHistory> historyCaptor = ArgumentCaptor.forClass(UserTransactionHistory.class);
         verify(historyRepository).save(historyCaptor.capture());
         UserTransactionHistory storedHistory = historyCaptor.getValue();
-
-        ArgumentCaptor<ProcessedEvent> processedCaptor = ArgumentCaptor.forClass(ProcessedEvent.class);
-        verify(processedEventRepository).saveAndFlush(processedCaptor.capture());
-        ProcessedEvent processedEvent = processedCaptor.getValue();
+        verify(fraudInboxRepository).insertReceivedIfAbsent(eq(event.eventId()), eq(event.transactionId()), eq(event.traceId()), eq("INLINE_PROCESSING"), any(Instant.class), any(Instant.class));
+        verify(fraudInboxRepository).markProcessed(eq(event.eventId()), any(Instant.class));
 
         ArgumentCaptor<FraudDetectedEvent> fraudEventCaptor = ArgumentCaptor.forClass(FraudDetectedEvent.class);
-        verify(fraudEventPublisher).publish(fraudEventCaptor.capture());
+        verify(fraudOutboxService).enqueue(fraudEventCaptor.capture());
         FraudDetectedEvent fraudEvent = fraudEventCaptor.getValue();
 
         assertNotNull(storedHistory.getOccurredAt());
-        assertEquals(storedHistory.getOccurredAt(), processedEvent.getProcessedAt());
-        assertFalse(processedEvent.getProcessedAt().isBefore(before));
-        assertFalse(processedEvent.getProcessedAt().isAfter(after));
 
         assertEquals(event.transactionId(), fraudEvent.transactionId());
         assertEquals(event.traceId(), fraudEvent.traceId());
@@ -174,6 +173,9 @@ class FraudDetectionServiceTest {
         when(historyRepository.findTopByUserIdOrderByOccurredAtDesc("user-1")).thenReturn(Optional.empty());
         when(fraudRulesEngine.evaluate(eq(event), eq(Optional.empty()), eq(0L), any(Instant.class)))
                 .thenReturn(new FraudEvaluation(true, 80, List.of("HIGH_AMOUNT")));
+        when(fraudInboxRepository.insertReceivedIfAbsent(eq(event.eventId()), eq(event.transactionId()), eq(event.traceId()), eq("INLINE_PROCESSING"), any(Instant.class), any(Instant.class)))
+                .thenReturn(1);
+        when(fraudInboxRepository.markProcessed(eq(event.eventId()), any(Instant.class))).thenReturn(1);
 
         try {
             fraudDetectionService.process(event);
@@ -182,7 +184,7 @@ class FraudDetectionServiceTest {
         }
 
         ArgumentCaptor<FraudDetectedEvent> fraudEventCaptor = ArgumentCaptor.forClass(FraudDetectedEvent.class);
-        verify(fraudEventPublisher).publish(fraudEventCaptor.capture());
+        verify(fraudOutboxService).enqueue(fraudEventCaptor.capture());
         assertEquals(event.traceId(), fraudEventCaptor.getValue().traceId());
     }
 
@@ -199,5 +201,20 @@ class FraudDetectionServiceTest {
                 "US",
                 PaymentMethod.CARD
         );
+    }
+
+    private FraudInboxEvent buildInboxEvent(TransactionCreatedEvent event, Instant occurredAt, boolean processed) {
+        FraudInboxEvent inboxEvent = FraudInboxEvent.received(
+                event.eventId(),
+                event.transactionId(),
+                event.traceId(),
+                "INLINE_PROCESSING",
+                occurredAt,
+                Instant.now()
+        );
+        if (processed) {
+            inboxEvent.markProcessed(Instant.now());
+        }
+        return inboxEvent;
     }
 }

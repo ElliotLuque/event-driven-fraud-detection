@@ -2,8 +2,8 @@ package com.fraud.detection;
 
 import com.fraud.detection.events.FraudDetectedEvent;
 import com.fraud.detection.events.TransactionCreatedEvent;
+import com.fraud.detection.inbox.FraudInboxRepository;
 import com.fraud.detection.model.PaymentMethod;
-import com.fraud.detection.repository.ProcessedEventRepository;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -61,7 +61,7 @@ class FraudDetectionFlowIntegrationTest {
     }
 
     @Autowired
-    private ProcessedEventRepository processedEventRepository;
+    private FraudInboxRepository fraudInboxRepository;
 
     @Test
     void shouldConsumeTransactionAndPublishFraudEvent() {
@@ -94,7 +94,7 @@ class FraudDetectionFlowIntegrationTest {
             assertEquals(input.traceId(), output.traceId());
             assertTrue(output.riskScore() >= 45);
             assertTrue(output.reasons().contains("HIGH_AMOUNT"));
-            assertTrue(processedEventRepository.existsById(sourceEventId));
+            assertTrue(fraudInboxRepository.existsById(sourceEventId));
         }
     }
 

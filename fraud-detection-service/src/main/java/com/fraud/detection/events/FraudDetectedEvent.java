@@ -6,6 +6,7 @@ import java.util.List;
 public record FraudDetectedEvent(
         String eventId,
         Instant occurredAt,
+        Instant transactionOccurredAt,
         String transactionId,
         String traceId,
         String userId,

@@ -1,6 +1,6 @@
 package com.fraud.detection.service;
 
-import com.fraud.detection.repository.ProcessedEventRepository;
+import com.fraud.detection.inbox.FraudInboxRepository;
 import com.fraud.detection.repository.UserTransactionHistoryRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,18 +17,18 @@ public class DataRetentionService {
 
     private static final Logger log = LoggerFactory.getLogger(DataRetentionService.class);
 
-    private final ProcessedEventRepository processedEventRepository;
+    private final FraudInboxRepository fraudInboxRepository;
     private final UserTransactionHistoryRepository historyRepository;
     private final Duration processedEventRetention;
     private final Duration transactionHistoryRetention;
 
     public DataRetentionService(
-            ProcessedEventRepository processedEventRepository,
+            FraudInboxRepository fraudInboxRepository,
             UserTransactionHistoryRepository historyRepository,
             @Value("${app.data-retention.processed-event-ttl:PT1H}") Duration processedEventRetention,
             @Value("${app.data-retention.transaction-history-ttl:PT1H}") Duration transactionHistoryRetention
     ) {
-        this.processedEventRepository = processedEventRepository;
+        this.fraudInboxRepository = fraudInboxRepository;
         this.historyRepository = historyRepository;
         this.processedEventRetention = processedEventRetention;
         this.transactionHistoryRetention = transactionHistoryRetention;
@@ -43,9 +43,9 @@ public class DataRetentionService {
 
     private void purgeProcessedEvents() {
         Instant cutoff = Instant.now().minus(processedEventRetention);
-        int deleted = processedEventRepository.deleteByProcessedAtBefore(cutoff);
+        int deleted = fraudInboxRepository.deleteProcessedBefore(cutoff);
         if (deleted > 0) {
-            log.info("Purged {} expired processed events older than {}", deleted, cutoff);
+            log.info("Purged {} expired inbox events older than {}", deleted, cutoff);
         }
     }
 
