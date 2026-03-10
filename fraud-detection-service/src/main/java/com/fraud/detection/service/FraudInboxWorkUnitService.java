@@ -28,16 +28,20 @@ public class FraudInboxWorkUnitService {
     }
 
     @Transactional
-    public boolean processSingleNext() {
-        List<FraudInboxEvent> batch = fraudInboxRepository.lockNextReceivedBatch(1);
+    public int processNextBatch(int claimSize) {
+        int effectiveClaimSize = Math.max(1, claimSize);
+        List<FraudInboxEvent> batch = fraudInboxRepository.lockNextReceivedBatch(effectiveClaimSize);
         if (batch.isEmpty()) {
-            return false;
+            return 0;
         }
 
-        FraudInboxEvent inboxEvent = batch.get(0);
-        TransactionCreatedEvent event = deserialize(inboxEvent.getPayload(), inboxEvent.getEventId());
-        fraudDetectionService.processIngestedEvent(event, inboxEvent.getOccurredAt());
-        return true;
+        int processed = 0;
+        for (FraudInboxEvent inboxEvent : batch) {
+            TransactionCreatedEvent event = deserialize(inboxEvent.getPayload(), inboxEvent.getEventId());
+            fraudDetectionService.processIngestedEvent(event, inboxEvent.getOccurredAt());
+            processed++;
+        }
+        return processed;
     }
 
     private TransactionCreatedEvent deserialize(String payload, String eventId) {

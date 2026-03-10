@@ -40,18 +40,22 @@ public class AlertInboxWorkUnitService {
     }
 
     @Transactional
-    public boolean processSingleNext() {
-        List<AlertInboxEvent> batch = alertInboxRepository.lockNextReceivedBatch(1);
+    public int processNextBatch(int claimSize) {
+        int effectiveClaimSize = Math.max(1, claimSize);
+        List<AlertInboxEvent> batch = alertInboxRepository.lockNextReceivedBatch(effectiveClaimSize);
         if (batch.isEmpty()) {
-            return false;
+            return 0;
         }
 
-        AlertInboxEvent inboxEvent = batch.get(0);
-        FraudDetectedEvent event = deserialize(inboxEvent.getPayload(), inboxEvent.getEventId());
-        try (TracingScope ignored = openTracingScope(inboxEvent, event)) {
-            alertProcessingService.processIngestedEvent(event, inboxEvent.getOccurredAt());
+        int processed = 0;
+        for (AlertInboxEvent inboxEvent : batch) {
+            FraudDetectedEvent event = deserialize(inboxEvent.getPayload(), inboxEvent.getEventId());
+            try (TracingScope ignored = openTracingScope(inboxEvent, event)) {
+                alertProcessingService.processIngestedEvent(event, inboxEvent.getOccurredAt());
+            }
+            processed++;
         }
-        return true;
+        return processed;
     }
 
     private FraudDetectedEvent deserialize(String payload, String eventId) {

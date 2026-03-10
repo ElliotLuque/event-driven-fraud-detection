@@ -27,25 +27,33 @@ public class FraudInboxProcessingService {
     private final FraudDetectionMetrics fraudDetectionMetrics;
     private final int batchSize;
     private final int workers;
+    private final int claimSize;
+    private final int backlogSampleIntervalRuns;
     private final ExecutorService executorService;
+    private long drainRuns;
 
     public FraudInboxProcessingService(
             FraudInboxWorkUnitService fraudInboxWorkUnitService,
             FraudInboxRepository fraudInboxRepository,
             FraudDetectionMetrics fraudDetectionMetrics,
             @Value("${app.inbox.processor.batch-size:200}") int batchSize,
-            @Value("${app.inbox.processor.workers:8}") int workers
+            @Value("${app.inbox.processor.workers:8}") int workers,
+            @Value("${app.inbox.processor.claim-size:16}") int claimSize,
+            @Value("${app.inbox.processor.backlog-sample-interval-runs:50}") int backlogSampleIntervalRuns
     ) {
         this.fraudInboxWorkUnitService = fraudInboxWorkUnitService;
         this.fraudInboxRepository = fraudInboxRepository;
         this.fraudDetectionMetrics = fraudDetectionMetrics;
         this.batchSize = batchSize;
         this.workers = Math.max(1, workers);
+        this.claimSize = Math.max(1, claimSize);
+        this.backlogSampleIntervalRuns = Math.max(1, backlogSampleIntervalRuns);
         this.executorService = Executors.newFixedThreadPool(this.workers);
+        this.drainRuns = 0;
     }
 
     @Scheduled(
-            fixedDelayString = "${app.inbox.processor.interval-ms:1}",
+            fixedDelayString = "${app.inbox.processor.interval-ms:10}",
             initialDelayString = "${app.inbox.processor.initial-delay-ms:0}"
     )
     public void drainInbox() {
@@ -54,14 +62,21 @@ public class FraudInboxProcessingService {
 
         for (int i = 0; i < workers; i++) {
             Callable<Integer> workerTask = () -> {
-                int processed = 0;
-                for (int j = 0; j < perWorkerBudget; j++) {
-                    if (!fraudInboxWorkUnitService.processSingleNext()) {
+                int processedByWorker = 0;
+                int remaining = perWorkerBudget;
+                while (remaining > 0) {
+                    int currentClaimSize = Math.min(claimSize, remaining);
+                    int processedBatch = fraudInboxWorkUnitService.processNextBatch(currentClaimSize);
+                    if (processedBatch <= 0) {
                         break;
                     }
-                    processed++;
+                    processedByWorker += processedBatch;
+                    remaining -= processedBatch;
+                    if (processedBatch < currentClaimSize) {
+                        break;
+                    }
                 }
-                return processed;
+                return processedByWorker;
             };
             futures.add(executorService.submit(workerTask));
         }
@@ -79,8 +94,11 @@ public class FraudInboxProcessingService {
             }
         }
 
-        long backlog = fraudInboxRepository.countByStatus(FraudInboxStatus.RECEIVED);
-        fraudDetectionMetrics.recordInboxBacklog(backlog);
+        drainRuns++;
+        if (processed > 0 || drainRuns % backlogSampleIntervalRuns == 0) {
+            long backlog = fraudInboxRepository.countByStatus(FraudInboxStatus.RECEIVED);
+            fraudDetectionMetrics.recordInboxBacklog(backlog);
+        }
 
         if (processed > 0) {
             log.debug("fraud_inbox_batch_processed count={}", processed);

@@ -16,6 +16,10 @@ spring:
         jdbc:
           time_zone: UTC
     open-in-view: false
+  task:
+    scheduling:
+      pool:
+        size: ${SPRING_TASK_SCHEDULING_POOL_SIZE:6}
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
     consumer:
@@ -82,10 +86,12 @@ app:
     cleanup-initial-delay-ms: ${APP_OUTBOX_CLEANUP_INITIAL_DELAY_MS:60000}
   inbox:
     processor:
-      interval-ms: ${APP_INBOX_PROCESSOR_INTERVAL_MS:1}
+      interval-ms: ${APP_INBOX_PROCESSOR_INTERVAL_MS:10}
       initial-delay-ms: ${APP_INBOX_PROCESSOR_INITIAL_DELAY_MS:0}
       batch-size: ${APP_INBOX_PROCESSOR_BATCH_SIZE:512}
       workers: ${APP_INBOX_PROCESSOR_WORKERS:8}
+      claim-size: ${APP_INBOX_PROCESSOR_CLAIM_SIZE:16}
+      backlog-sample-interval-runs: ${APP_INBOX_PROCESSOR_BACKLOG_SAMPLE_INTERVAL_RUNS:50}
   data-retention:
     processed-event-ttl: PT1H
     transaction-history-ttl: PT1H
