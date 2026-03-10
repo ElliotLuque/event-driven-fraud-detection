@@ -51,6 +51,7 @@ management:
     distribution:
       percentiles-histogram:
         http.server.requests: true
+        fraud_pipeline_e2e_latency: true
       slo:
         http.server.requests: 50ms,100ms,200ms,500ms,1s,2s,5s
     tags:
@@ -78,7 +79,14 @@ app:
       to: ${APP_NOTIFICATION_EMAIL_TO:}
   data-retention:
     processed-event-ttl: PT1H
+    inbox-event-ttl: PT1H
     cleanup-interval: 300000
+  inbox:
+    processor:
+      interval-ms: ${APP_INBOX_PROCESSOR_INTERVAL_MS:1}
+      initial-delay-ms: ${APP_INBOX_PROCESSOR_INITIAL_DELAY_MS:0}
+      batch-size: ${APP_INBOX_PROCESSOR_BATCH_SIZE:256}
+      workers: ${APP_INBOX_PROCESSOR_WORKERS:4}
   kafka:
     partitions: ${APP_KAFKA_PARTITIONS:18}
     replicas: ${APP_KAFKA_REPLICAS:3}
