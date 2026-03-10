@@ -92,8 +92,8 @@ function buildStages(kind, rps, duration) {
       ];
     case 'soak':
       return [
-        { target: Math.max(80, Math.floor(rps * 0.7)), duration: '1m' },
-        { target: Math.max(80, Math.floor(rps * 0.7)), duration },
+        { target: rps, duration: '1m' },
+        { target: rps, duration },
         { target: 0, duration: '30s' },
       ];
     case 'stress':
