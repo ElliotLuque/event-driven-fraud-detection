@@ -63,6 +63,7 @@ class FraudDetectedDlqConsumerTest {
         return new FraudDetectedEvent(
                 "evt-1",
                 Instant.parse("2026-01-01T10:00:00Z"),
+                Instant.parse("2026-01-01T09:59:59Z"),
                 "tx-1",
                 null,
                 "user-1",

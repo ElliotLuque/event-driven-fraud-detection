@@ -1,7 +1,7 @@
 package com.fraud.alert.messaging;
 
 import com.fraud.alert.events.FraudDetectedEvent;
-import com.fraud.alert.service.AlertProcessingService;
+import com.fraud.alert.service.AlertInboxIngestionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -17,10 +17,10 @@ public class FraudDetectedConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(FraudDetectedConsumer.class);
 
-    private final AlertProcessingService alertProcessingService;
+    private final AlertInboxIngestionService alertInboxIngestionService;
 
-    public FraudDetectedConsumer(AlertProcessingService alertProcessingService) {
-        this.alertProcessingService = alertProcessingService;
+    public FraudDetectedConsumer(AlertInboxIngestionService alertInboxIngestionService) {
+        this.alertInboxIngestionService = alertInboxIngestionService;
     }
 
     @KafkaListener(topics = "${app.kafka.topics.fraud-detected}")
@@ -63,11 +63,11 @@ public class FraudDetectedConsumer {
                     kv("offset", offset)
             );
 
-            alertProcessingService.process(event);
+            boolean accepted = alertInboxIngestionService.ingest(event);
 
-            log.info("fraud_event_processed",
-                    kv("event", "fraud_event_processed"),
-                    kv("outcome", "success"),
+            log.info("fraud_event_enqueued",
+                    kv("event", "fraud_event_enqueued"),
+                    kv("outcome", accepted ? "success" : "duplicate"),
                     kv("eventId", event.eventId()),
                     kv("transactionId", event.transactionId()),
                     kv("topic", topic),

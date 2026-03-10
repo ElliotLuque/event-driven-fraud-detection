@@ -2,6 +2,7 @@ package com.fraud.alert.service;
 
 import com.fraud.alert.model.Alert;
 import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 
@@ -27,6 +28,7 @@ class AlertMetricsTest {
 
         alertMetrics.recordAlertCreated(alert);
         alertMetrics.recordNotification("email", "success", 120);
+        alertMetrics.recordPipelineE2eFraud(950);
 
         assertEquals(1.0, meterRegistry.counter("fraud_alerts").count(), 0.00001);
         assertEquals(1.0, meterRegistry.counter("fraud_alerts_by_severity", "severity", "high").count(), 0.00001);
@@ -35,5 +37,8 @@ class AlertMetricsTest {
         DistributionSummary summary = meterRegistry.find("fraud_alert_risk_score").summary();
         assertEquals(1L, summary.count());
         assertEquals(73.0, summary.totalAmount(), 0.00001);
+
+        Timer e2eTimer = meterRegistry.find("fraud_pipeline_e2e_latency").tag("path", "fraud").timer();
+        assertEquals(1L, e2eTimer.count());
     }
 }

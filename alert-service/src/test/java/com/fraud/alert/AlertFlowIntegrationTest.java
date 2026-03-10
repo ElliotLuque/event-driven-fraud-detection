@@ -66,6 +66,7 @@ class AlertFlowIntegrationTest {
         FraudDetectedEvent event = new FraudDetectedEvent(
                 eventId,
                 Instant.now(),
+                Instant.now().minusSeconds(1),
                 transactionId,
                 "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                 "user-alert-it",

@@ -1,6 +1,7 @@
 package com.fraud.alert.service;
 
 import com.fraud.alert.events.FraudDetectedEvent;
+import com.fraud.alert.inbox.AlertInboxRepository;
 import com.fraud.alert.mapping.AlertEventMapper;
 import com.fraud.alert.model.Alert;
 import com.fraud.alert.model.ProcessedEvent;
@@ -35,6 +36,9 @@ class AlertProcessingServiceTest {
     private ProcessedEventRepository processedEventRepository;
 
     @Mock
+    private AlertInboxRepository alertInboxRepository;
+
+    @Mock
     private AlertRepository alertRepository;
 
     @Spy
@@ -52,12 +56,15 @@ class AlertProcessingServiceTest {
     @Test
     void processShouldSkipDuplicatedEvent() {
         FraudDetectedEvent event = buildEvent("evt-dup", List.of("HIGH_AMOUNT"));
+        when(alertInboxRepository.insertReceivedIfAbsent(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(1);
+        when(alertInboxRepository.markProcessed(any(), any())).thenReturn(1);
         when(processedEventRepository.saveAndFlush(any(ProcessedEvent.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
 
         alertProcessingService.process(event);
 
         verify(processedEventRepository).saveAndFlush(any(ProcessedEvent.class));
+        verify(alertInboxRepository).markProcessed(any(), any());
         verify(alertRepository, never()).save(any(Alert.class));
         verify(processedEventRepository, never()).save(any(ProcessedEvent.class));
         verifyNoInteractions(alertMetrics, notificationGateway);
@@ -66,6 +73,8 @@ class AlertProcessingServiceTest {
     @Test
     void processShouldPersistAlertAndNotifyForNewEvent() {
         FraudDetectedEvent event = buildEvent("evt-1", List.of("HIGH_AMOUNT", "HIGH_RISK_MERCHANT"));
+        when(alertInboxRepository.insertReceivedIfAbsent(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(1);
+        when(alertInboxRepository.markProcessed(any(), any())).thenReturn(1);
 
         alertProcessingService.process(event);
 
@@ -94,6 +103,8 @@ class AlertProcessingServiceTest {
     @Test
     void processShouldUseFallbackReasonWhenNoReasonsWereProvided() {
         FraudDetectedEvent event = buildEvent("evt-2", List.of());
+        when(alertInboxRepository.insertReceivedIfAbsent(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(1);
+        when(alertInboxRepository.markProcessed(any(), any())).thenReturn(1);
 
         alertProcessingService.process(event);
 
@@ -106,6 +117,8 @@ class AlertProcessingServiceTest {
     @Test
     void processShouldPreferEventTraceIdOverMdcTraceId() {
         FraudDetectedEvent event = buildEvent("evt-3", List.of("HIGH_AMOUNT"));
+        when(alertInboxRepository.insertReceivedIfAbsent(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(1);
+        when(alertInboxRepository.markProcessed(any(), any())).thenReturn(1);
         MDC.put("traceId", "mdc-trace-that-must-not-win");
 
         try {
@@ -123,6 +136,7 @@ class AlertProcessingServiceTest {
         return new FraudDetectedEvent(
                 eventId,
                 Instant.parse("2026-01-01T10:00:00Z"),
+                Instant.parse("2026-01-01T09:59:58Z"),
                 "tx-1",
                 "abcdefabcdefabcdefabcdefabcdefab",
                 "user-1",
