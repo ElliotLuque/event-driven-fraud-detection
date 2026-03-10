@@ -96,6 +96,28 @@ Configuración de tópicos:
 
 ## 🚀 Ejecutar localmente
 
+Starter recomendado (auto-calcula escalado y paralelismo Kafka/Spring):
+
+```bash
+bash scripts/start-autoscale.sh
+```
+
+El starter:
+
+- pide instancias por servicio (`transaction`, `fraud`, `alert`)
+- calcula particiones Kafka con regla 1:1 (`partitions = lcm(instancias_fraud, instancias_alert) * factor`)
+- calcula `SPRING_KAFKA_LISTENER_CONCURRENCY` por instancia para `fraud-detection-service` y `alert-service`
+- ajusta pool Hikari por servicio con budgets de conexiones para evitar saturar PostgreSQL
+- genera `.env.scaling` y levanta `docker compose` sin tocar `docker-compose.yml`
+
+Modo solo generar configuración (sin levantar contenedores):
+
+```bash
+bash scripts/start-autoscale.sh --render-only
+```
+
+Arranque tradicional (sin autoscaling starter):
+
 ```bash
 docker compose up -d --build
 ```
@@ -104,8 +126,7 @@ docker compose up -d --build
 > El primer arranque puede tardar varios minutos por la descarga de imágenes, el build inicial y el escalado de 6 réplicas por microservicio.
 
 > [!TIP]
-> Si tu máquina tiene recursos limitados, puedes bajar réplicas al arrancar:
-> `docker compose up -d --build --scale transaction-service=2 --scale fraud-detection-service=2 --scale alert-service=2`
+> Si tu máquina tiene recursos limitados, usa el starter y baja instancias o factor de paralelismo cuando te lo pida.
 
 Servicios disponibles:
 
@@ -208,6 +229,18 @@ Métricas de negocio:
 - `kafka_dlq_events_received_total` — eventos DLQ recibidos
 - `kafka_dlq_events_reprocessed_total` — eventos DLQ reprocesados con éxito
 - `kafka_dlq_events_failed_total` — eventos DLQ con fallo de reproceso
+- `fraud_pipeline_e2e_latency_seconds{path}` — latencia end-to-end desde `TransactionCreated.occurredAt` hasta resultado final (`path="clean"` o `path="fraud"`)
+
+PromQL para P95 del flujo completo:
+
+```promql
+histogram_quantile(
+  0.95,
+  sum by (le, path) (
+    rate(fraud_pipeline_e2e_latency_seconds_bucket[5m])
+  )
+)
+```
 
 ### 🚨 Alertas SLO de negocio
 
