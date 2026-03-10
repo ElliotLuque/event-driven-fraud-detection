@@ -11,3 +11,5 @@ target/
 transaction-service/target/
 fraud-detection-service/target/
 alert-service/target/
+
+.env.scaling
