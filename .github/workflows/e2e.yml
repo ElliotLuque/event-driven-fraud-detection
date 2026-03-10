@@ -35,7 +35,6 @@ jobs:
 
       - name: Pre-pull Testcontainers images
         run: |
-          docker pull confluentinc/cp-zookeeper:7.6.1 &
           docker pull confluentinc/cp-kafka:7.6.1 &
           docker pull postgres:16-alpine &
           docker pull maven:3.9.9-eclipse-temurin-21 &

@@ -37,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * End-to-end test that verifies the full pipeline:
  * transaction-service -> Kafka -> fraud-detection-service -> Kafka -> alert-service
  *
- * Spins up all 3 microservices + Kafka + ZooKeeper + 3 PostgreSQL instances
+ * Spins up all 3 microservices + Kafka (KRaft) + 3 PostgreSQL instances
  * using Docker Compose via Testcontainers.
  */
 @Testcontainers(disabledWithoutDocker = true)

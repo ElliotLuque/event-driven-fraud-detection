@@ -1,87 +1,91 @@
 services:
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.6.1
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - "2181:2181"
-
   kafka:
     image: confluentinc/cp-kafka:7.6.1
-    depends_on:
-      - zookeeper
     ports:
       - "29092:29092"
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093,2@kafka-2:9093,3@kafka-3:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
       KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     healthcheck:
-      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1"]
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1",
+        ]
       interval: 10s
       timeout: 10s
       retries: 10
-
   kafka-2:
     image: confluentinc/cp-kafka:7.6.1
-    depends_on:
-      - zookeeper
     ports:
       - "39092:39092"
     environment:
-      KAFKA_BROKER_ID: 2
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:39092
+      KAFKA_NODE_ID: 2
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093,2@kafka-2:9093,3@kafka-3:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:39092,CONTROLLER://0.0.0.0:9093
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9092,PLAINTEXT_HOST://localhost:39092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
       KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     healthcheck:
-      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1"]
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1",
+        ]
       interval: 10s
       timeout: 10s
       retries: 10
-
   kafka-3:
     image: confluentinc/cp-kafka:7.6.1
-    depends_on:
-      - zookeeper
     ports:
       - "49092:49092"
     environment:
-      KAFKA_BROKER_ID: 3
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:49092
+      KAFKA_NODE_ID: 3
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093,2@kafka-2:9093,3@kafka-3:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:49092,CONTROLLER://0.0.0.0:9093
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:9092,PLAINTEXT_HOST://localhost:49092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
       KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     healthcheck:
-      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1"]
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1",
+        ]
       interval: 10s
       timeout: 10s
       retries: 10
-
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     depends_on:
@@ -93,12 +97,10 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092,kafka-2:9092,kafka-3:9092
-      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
-
   transaction-db:
     image: postgres:16-alpine
     restart: unless-stopped
-    command: ["postgres", "-c", "max_connections=300"]
+    command: ["postgres", "-c", "max_connections=${TRANSACTION_DB_MAX_CONNECTIONS:-300}"]
     environment:
       POSTGRES_DB: transactions
       POSTGRES_USER: postgres
@@ -110,10 +112,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
   fraud-db:
     image: postgres:16-alpine
     restart: unless-stopped
+    command: ["postgres", "-c", "max_connections=${FRAUD_DB_MAX_CONNECTIONS:-300}"]
     environment:
       POSTGRES_DB: fraud
       POSTGRES_USER: postgres
@@ -125,10 +127,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
   alert-db:
     image: postgres:16-alpine
     restart: unless-stopped
+    command: ["postgres", "-c", "max_connections=${ALERT_DB_MAX_CONNECTIONS:-300}"]
     environment:
       POSTGRES_DB: alerts
       POSTGRES_USER: postgres
@@ -140,7 +142,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
   kafka-exporter:
     image: danielqsj/kafka-exporter:v1.8.0
     restart: unless-stopped
@@ -158,7 +159,6 @@ services:
       - "--log.level=warn"
     ports:
       - "9308:9308"
-
   transaction-db-exporter:
     image: prometheuscommunity/postgres-exporter:v0.15.0
     restart: unless-stopped
@@ -169,7 +169,6 @@ services:
       DATA_SOURCE_NAME: postgresql://postgres:postgres@transaction-db:5432/transactions?sslmode=disable
     ports:
       - "9187:9187"
-
   fraud-db-exporter:
     image: prometheuscommunity/postgres-exporter:v0.15.0
     restart: unless-stopped
@@ -180,7 +179,6 @@ services:
       DATA_SOURCE_NAME: postgresql://postgres:postgres@fraud-db:5432/fraud?sslmode=disable
     ports:
       - "9188:9187"
-
   alert-db-exporter:
     image: prometheuscommunity/postgres-exporter:v0.15.0
     restart: unless-stopped
@@ -191,7 +189,6 @@ services:
       DATA_SOURCE_NAME: postgresql://postgres:postgres@alert-db:5432/alerts?sslmode=disable
     ports:
       - "9189:9187"
-
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
     restart: unless-stopped
@@ -208,12 +205,11 @@ services:
       - /sys:/sys:ro
       - /var/lib/docker:/var/lib/docker:ro
       - /dev/disk:/dev/disk:ro
-
   transaction-service:
     build:
       context: ./transaction-service
     restart: unless-stopped
-    scale: 6
+    scale: ${TRANSACTION_SERVICE_INSTANCES:-6}
     depends_on:
       kafka:
         condition: service_healthy
@@ -228,6 +224,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://transaction-db:5432/transactions
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${TRANSACTION_DB_POOL_MAX:-30}
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: ${TRANSACTION_DB_POOL_MIN_IDLE:-10}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092,kafka-2:9092,kafka-3:9092
       APP_KAFKA_PARTITIONS: ${APP_KAFKA_PARTITIONS:-18}
       APP_KAFKA_REPLICAS: ${APP_KAFKA_REPLICAS:-3}
@@ -236,9 +234,8 @@ services:
       driver: json-file
       options:
         mode: blocking
-        max-size: "50m"
-        max-file: "4"
-
+        max-size: "100m"
+        max-file: "8"
   transaction-gateway:
     image: nginx:1.27-alpine
     restart: unless-stopped
@@ -248,12 +245,11 @@ services:
       - "8080:8080"
     volumes:
       - ./observability/nginx/transaction-gateway.conf:/etc/nginx/nginx.conf:ro
-
   fraud-detection-service:
     build:
       context: ./fraud-detection-service
     restart: unless-stopped
-    scale: 6
+    scale: ${FRAUD_SERVICE_INSTANCES:-6}
     depends_on:
       kafka:
         condition: service_healthy
@@ -268,18 +264,24 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://fraud-db:5432/fraud
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${FRAUD_DB_POOL_MAX:-15}
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: ${FRAUD_DB_POOL_MIN_IDLE:-5}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092,kafka-2:9092,kafka-3:9092
       SPRING_KAFKA_LISTENER_CONCURRENCY: ${FRAUD_KAFKA_LISTENER_CONCURRENCY:-3}
+      APP_INBOX_PROCESSOR_WORKERS: ${APP_INBOX_PROCESSOR_WORKERS:-12}
+      APP_INBOX_PROCESSOR_BATCH_SIZE: ${APP_INBOX_PROCESSOR_BATCH_SIZE:-1024}
+      APP_INBOX_PROCESSOR_INTERVAL_MS: ${APP_INBOX_PROCESSOR_INTERVAL_MS:-1}
+      APP_INBOX_PROCESSOR_INITIAL_DELAY_MS: ${APP_INBOX_PROCESSOR_INITIAL_DELAY_MS:-0}
       APP_KAFKA_PARTITIONS: ${APP_KAFKA_PARTITIONS:-18}
       APP_KAFKA_REPLICAS: ${APP_KAFKA_REPLICAS:-3}
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://alloy:4318/v1/traces
     logging:
       driver: json-file
       options:
-        mode: blocking
-        max-size: "50m"
-        max-file: "4"
-
+        mode: non-blocking
+        max-buffer-size: "32m"
+        max-size: "100m"
+        max-file: "8"
   fraud-gateway:
     image: nginx:1.27-alpine
     restart: unless-stopped
@@ -289,19 +291,17 @@ services:
       - "8081:8081"
     volumes:
       - ./observability/nginx/fraud-gateway.conf:/etc/nginx/nginx.conf:ro
-
   mailhog:
     image: mailhog/mailhog:v1.0.1
     restart: unless-stopped
     ports:
       - "1025:1025"
       - "8025:8025"
-
   alert-service:
     build:
       context: ./alert-service
     restart: unless-stopped
-    scale: 6
+    scale: ${ALERT_SERVICE_INSTANCES:-6}
     depends_on:
       kafka:
         condition: service_healthy
@@ -318,8 +318,14 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://alert-db:5432/alerts
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${ALERT_DB_POOL_MAX:-15}
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: ${ALERT_DB_POOL_MIN_IDLE:-5}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092,kafka-2:9092,kafka-3:9092
       SPRING_KAFKA_LISTENER_CONCURRENCY: ${ALERT_KAFKA_LISTENER_CONCURRENCY:-3}
+      APP_INBOX_PROCESSOR_WORKERS: ${APP_ALERT_INBOX_PROCESSOR_WORKERS:-4}
+      APP_INBOX_PROCESSOR_BATCH_SIZE: ${APP_ALERT_INBOX_PROCESSOR_BATCH_SIZE:-256}
+      APP_INBOX_PROCESSOR_INTERVAL_MS: ${APP_ALERT_INBOX_PROCESSOR_INTERVAL_MS:-1}
+      APP_INBOX_PROCESSOR_INITIAL_DELAY_MS: ${APP_ALERT_INBOX_PROCESSOR_INITIAL_DELAY_MS:-0}
       APP_KAFKA_PARTITIONS: ${APP_KAFKA_PARTITIONS:-18}
       APP_KAFKA_REPLICAS: ${APP_KAFKA_REPLICAS:-3}
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://alloy:4318/v1/traces
@@ -331,10 +337,10 @@ services:
     logging:
       driver: json-file
       options:
-        mode: blocking
-        max-size: "50m"
-        max-file: "4"
-
+        mode: non-blocking
+        max-buffer-size: "32m"
+        max-size: "100m"
+        max-file: "8"
   alert-gateway:
     image: nginx:1.27-alpine
     restart: unless-stopped
@@ -344,7 +350,6 @@ services:
       - "8082:8082"
     volumes:
       - ./observability/nginx/alert-gateway.conf:/etc/nginx/nginx.conf:ro
-
   prometheus:
     image: prom/prometheus:v2.54.1
     restart: unless-stopped
@@ -368,7 +373,6 @@ services:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-
   loki:
     image: grafana/loki:3.1.1
     restart: unless-stopped
@@ -378,7 +382,6 @@ services:
     volumes:
       - ./observability/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
       - loki-data:/loki
-
   alloy:
     image: grafana/alloy:v1.13.0
     restart: unless-stopped
@@ -390,13 +393,12 @@ services:
         "run",
         "--server.http.listen-addr=0.0.0.0:12345",
         "--storage.path=/var/lib/alloy/data",
-        "/etc/alloy/config.alloy"
+        "/etc/alloy/config.alloy",
       ]
     volumes:
       - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - alloy-data:/var/lib/alloy/data
-
   tempo:
     image: grafana/tempo:2.5.0
     restart: unless-stopped
@@ -408,7 +410,6 @@ services:
     volumes:
       - ./observability/tempo/tempo-config.yml:/etc/tempo/tempo-config.yml:ro
       - tempo-data:/var/tempo
-
   grafana:
     image: grafana/grafana:11.1.4
     restart: unless-stopped
@@ -425,7 +426,6 @@ services:
       - grafana-data:/var/lib/grafana
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
-
 volumes:
   loki-data:
   alloy-data:
