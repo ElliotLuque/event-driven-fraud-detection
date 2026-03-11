@@ -25,7 +25,8 @@ Variables de entorno opcionales:
   TRANSACTION_SERVICE_INSTANCES
   FRAUD_SERVICE_INSTANCES
   ALERT_SERVICE_INSTANCES
-  KAFKA_PARALLELISM_FACTOR
+  FRAUD_KAFKA_LISTENER_CONCURRENCY
+  ALERT_KAFKA_LISTENER_CONCURRENCY
   APP_KAFKA_REPLICAS
   TRANSACTION_DB_MAX_CONNECTIONS
   FRAUD_DB_MAX_CONNECTIONS
@@ -40,10 +41,14 @@ Variables de entorno opcionales:
   APP_INBOX_PROCESSOR_INITIAL_DELAY_MS
   APP_INBOX_PROCESSOR_BACKLOG_SAMPLE_INTERVAL_RUNS
 
-Regla de paralelismo 1:1:
-  partitions = lcm(fraud_instances, alert_instances) * factor
-  fraud_listener_concurrency = partitions / fraud_instances
-  alert_listener_concurrency = partitions / alert_instances
+Regla de paralelismo Kafka (por consumer group):
+  consumers = instances * listener_concurrency
+  concurrencia_efectiva = min(partitions, consumers)
+
+Calculo aplicado para compartir APP_KAFKA_PARTITIONS entre fraud y alert:
+  fraud_consumers = fraud_instances * fraud_listener_concurrency
+  alert_consumers = alert_instances * alert_listener_concurrency
+  partitions = max(fraud_consumers, alert_consumers)
 EOF
 }
 
@@ -66,27 +71,6 @@ ask_integer() {
 
     echo "Valor invalido. Ingresa un numero entre ${min_value} y ${max_value}."
   done
-}
-
-gcd() {
-  local a="$1"
-  local b="$2"
-  local t
-
-  while (( b != 0 )); do
-    t=$(( a % b ))
-    a="${b}"
-    b="${t}"
-  done
-
-  echo "${a}"
-}
-
-lcm() {
-  local a="$1"
-  local b="$2"
-
-  echo $(( a / $(gcd "${a}" "${b}") * b ))
 }
 
 clamp() {
@@ -134,7 +118,8 @@ done
 TRANSACTION_SERVICE_INSTANCES="${TRANSACTION_SERVICE_INSTANCES:-6}"
 FRAUD_SERVICE_INSTANCES="${FRAUD_SERVICE_INSTANCES:-6}"
 ALERT_SERVICE_INSTANCES="${ALERT_SERVICE_INSTANCES:-6}"
-KAFKA_PARALLELISM_FACTOR="${KAFKA_PARALLELISM_FACTOR:-18}"
+FRAUD_KAFKA_LISTENER_CONCURRENCY="${FRAUD_KAFKA_LISTENER_CONCURRENCY:-3}"
+ALERT_KAFKA_LISTENER_CONCURRENCY="${ALERT_KAFKA_LISTENER_CONCURRENCY:-3}"
 APP_KAFKA_REPLICAS="${APP_KAFKA_REPLICAS:-3}"
 
 APP_INBOX_PROCESSOR_WORKERS="${APP_INBOX_PROCESSOR_WORKERS:-12}"
@@ -164,7 +149,8 @@ if (( should_prompt )); then
   ask_integer TRANSACTION_SERVICE_INSTANCES "Instancias transaction-service" "${TRANSACTION_SERVICE_INSTANCES}" 1 60
   ask_integer FRAUD_SERVICE_INSTANCES "Instancias fraud-detection-service" "${FRAUD_SERVICE_INSTANCES}" 1 60
   ask_integer ALERT_SERVICE_INSTANCES "Instancias alert-service" "${ALERT_SERVICE_INSTANCES}" 1 60
-  ask_integer KAFKA_PARALLELISM_FACTOR "Factor de paralelismo Kafka (multiplica LCM)" "${KAFKA_PARALLELISM_FACTOR}" 1 20
+  ask_integer FRAUD_KAFKA_LISTENER_CONCURRENCY "Concurrency listener fraud (threads/instancia)" "${FRAUD_KAFKA_LISTENER_CONCURRENCY}" 1 64
+  ask_integer ALERT_KAFKA_LISTENER_CONCURRENCY "Concurrency listener alert (threads/instancia)" "${ALERT_KAFKA_LISTENER_CONCURRENCY}" 1 64
   ask_integer APP_KAFKA_REPLICAS "Replication factor Kafka" "${APP_KAFKA_REPLICAS}" 1 3
   ask_integer TRANSACTION_DB_MAX_CONNECTIONS "max_connections transaction-db" "${TRANSACTION_DB_MAX_CONNECTIONS}" 50 1000
   ask_integer FRAUD_DB_MAX_CONNECTIONS "max_connections fraud-db" "${FRAUD_DB_MAX_CONNECTIONS}" 50 1000
@@ -184,7 +170,8 @@ for value in \
   "${TRANSACTION_SERVICE_INSTANCES}" \
   "${FRAUD_SERVICE_INSTANCES}" \
   "${ALERT_SERVICE_INSTANCES}" \
-  "${KAFKA_PARALLELISM_FACTOR}" \
+  "${FRAUD_KAFKA_LISTENER_CONCURRENCY}" \
+  "${ALERT_KAFKA_LISTENER_CONCURRENCY}" \
   "${APP_KAFKA_REPLICAS}" \
   "${TRANSACTION_DB_MAX_CONNECTIONS}" \
   "${FRAUD_DB_MAX_CONNECTIONS}" \
@@ -209,10 +196,26 @@ if (( APP_KAFKA_REPLICAS > 3 )); then
   exit 1
 fi
 
-LCM_INSTANCES="$(lcm "${FRAUD_SERVICE_INSTANCES}" "${ALERT_SERVICE_INSTANCES}")"
-APP_KAFKA_PARTITIONS=$(( LCM_INSTANCES * KAFKA_PARALLELISM_FACTOR ))
-FRAUD_KAFKA_LISTENER_CONCURRENCY=$(( APP_KAFKA_PARTITIONS / FRAUD_SERVICE_INSTANCES ))
-ALERT_KAFKA_LISTENER_CONCURRENCY=$(( APP_KAFKA_PARTITIONS / ALERT_SERVICE_INSTANCES ))
+FRAUD_TOTAL_CONSUMERS=$(( FRAUD_SERVICE_INSTANCES * FRAUD_KAFKA_LISTENER_CONCURRENCY ))
+ALERT_TOTAL_CONSUMERS=$(( ALERT_SERVICE_INSTANCES * ALERT_KAFKA_LISTENER_CONCURRENCY ))
+
+if (( FRAUD_TOTAL_CONSUMERS >= ALERT_TOTAL_CONSUMERS )); then
+  APP_KAFKA_PARTITIONS="${FRAUD_TOTAL_CONSUMERS}"
+else
+  APP_KAFKA_PARTITIONS="${ALERT_TOTAL_CONSUMERS}"
+fi
+
+if (( FRAUD_TOTAL_CONSUMERS <= APP_KAFKA_PARTITIONS )); then
+  FRAUD_EFFECTIVE_CONCURRENCY="${FRAUD_TOTAL_CONSUMERS}"
+else
+  FRAUD_EFFECTIVE_CONCURRENCY="${APP_KAFKA_PARTITIONS}"
+fi
+
+if (( ALERT_TOTAL_CONSUMERS <= APP_KAFKA_PARTITIONS )); then
+  ALERT_EFFECTIVE_CONCURRENCY="${ALERT_TOTAL_CONSUMERS}"
+else
+  ALERT_EFFECTIVE_CONCURRENCY="${APP_KAFKA_PARTITIONS}"
+fi
 
 TRANSACTION_DB_POOL_MAX_RAW=$(( TRANSACTION_DB_CONNECTION_BUDGET / TRANSACTION_SERVICE_INSTANCES ))
 FRAUD_DB_POOL_MAX_RAW=$(( FRAUD_DB_CONNECTION_BUDGET / FRAUD_SERVICE_INSTANCES ))
@@ -252,7 +255,6 @@ FRAUD_DB_POOL_MIN_IDLE=${FRAUD_DB_POOL_MIN_IDLE}
 ALERT_DB_POOL_MAX=${ALERT_DB_POOL_MAX}
 ALERT_DB_POOL_MIN_IDLE=${ALERT_DB_POOL_MIN_IDLE}
 
-KAFKA_PARALLELISM_FACTOR=${KAFKA_PARALLELISM_FACTOR}
 TRANSACTION_DB_MAX_CONNECTIONS=${TRANSACTION_DB_MAX_CONNECTIONS}
 FRAUD_DB_MAX_CONNECTIONS=${FRAUD_DB_MAX_CONNECTIONS}
 ALERT_DB_MAX_CONNECTIONS=${ALERT_DB_MAX_CONNECTIONS}
@@ -269,7 +271,11 @@ echo "- fraud-detection-service instances: ${FRAUD_SERVICE_INSTANCES}"
 echo "- alert-service instances: ${ALERT_SERVICE_INSTANCES}"
 echo "- kafka partitions: ${APP_KAFKA_PARTITIONS}"
 echo "- fraud listener concurrency/instance: ${FRAUD_KAFKA_LISTENER_CONCURRENCY}"
+echo "- fraud total consumers (instances*concurrency): ${FRAUD_TOTAL_CONSUMERS}"
+echo "- fraud effective concurrency min(P, I*C): ${FRAUD_EFFECTIVE_CONCURRENCY}"
 echo "- alert listener concurrency/instance: ${ALERT_KAFKA_LISTENER_CONCURRENCY}"
+echo "- alert total consumers (instances*concurrency): ${ALERT_TOTAL_CONSUMERS}"
+echo "- alert effective concurrency min(P, I*C): ${ALERT_EFFECTIVE_CONCURRENCY}"
 echo "- fraud inbox workers: ${APP_INBOX_PROCESSOR_WORKERS}"
 echo "- fraud inbox batch size: ${APP_INBOX_PROCESSOR_BATCH_SIZE}"
 echo "- fraud inbox claim size: ${APP_INBOX_PROCESSOR_CLAIM_SIZE}"

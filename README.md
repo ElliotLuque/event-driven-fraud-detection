@@ -105,8 +105,9 @@ bash scripts/start-autoscale.sh
 El starter:
 
 - pide instancias por servicio (`transaction`, `fraud`, `alert`)
-- calcula particiones Kafka con regla 1:1 (`partitions = lcm(instancias_fraud, instancias_alert) * factor`)
-- calcula `SPRING_KAFKA_LISTENER_CONCURRENCY` por instancia para `fraud-detection-service` y `alert-service`
+- pide/usa `SPRING_KAFKA_LISTENER_CONCURRENCY` por instancia para `fraud-detection-service` y `alert-service`
+- calcula particiones Kafka con la regla práctica `partitions = max(instancias_fraud * concurrency_fraud, instancias_alert * concurrency_alert)`
+- reporta concurrencia efectiva por consumer group con `min(partitions, instancias * concurrency)`
 - ajusta pool Hikari por servicio con budgets de conexiones para evitar saturar PostgreSQL
 - genera `.env.scaling` y levanta `docker compose` sin tocar `docker-compose.yml`
 
