@@ -1,6 +1,7 @@
 package com.fraud.e2e;
 
 import io.restassured.http.ContentType;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -8,8 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.testcontainers.containers.ComposeContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -40,16 +39,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Spins up all 3 microservices + Kafka (KRaft) + 3 PostgreSQL instances
  * using Docker Compose via Testcontainers.
  */
-@Testcontainers(disabledWithoutDocker = true)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class FullPipelineE2ETest {
 
     private static final Duration STARTUP_TIMEOUT = Duration.ofMinutes(8);
 
-    @Container
     static final ComposeContainer ENV = new ComposeContainer(
             new File("docker-compose-e2e.yml"))
-            .withLocalCompose(true)
             .withExposedService("transaction-service-1", 8080,
                     Wait.forHttp("/actuator/health").forStatusCode(200)
                             .withStartupTimeout(STARTUP_TIMEOUT))
@@ -68,6 +64,8 @@ class FullPipelineE2ETest {
 
     @BeforeAll
     static void setUp() {
+        ENV.start();
+
         String txHost = ENV.getServiceHost("transaction-service-1", 8080);
         int txPort = ENV.getServicePort("transaction-service-1", 8080);
         transactionServiceUrl = "http://" + txHost + ":" + txPort;
@@ -75,6 +73,11 @@ class FullPipelineE2ETest {
         String alertHost = ENV.getServiceHost("alert-service-1", 8082);
         int alertPort = ENV.getServicePort("alert-service-1", 8082);
         alertServiceUrl = "http://" + alertHost + ":" + alertPort;
+    }
+
+    @AfterAll
+    static void tearDown() {
+        ENV.stop();
     }
 
     /**

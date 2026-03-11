@@ -23,7 +23,7 @@ services:
       retries: 10
 
   transaction-db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_DB: transactions
       POSTGRES_USER: postgres
@@ -35,7 +35,7 @@ services:
       retries: 5
 
   fraud-db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_DB: fraud
       POSTGRES_USER: postgres
@@ -47,7 +47,7 @@ services:
       retries: 5
 
   alert-db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_DB: alerts
       POSTGRES_USER: postgres
