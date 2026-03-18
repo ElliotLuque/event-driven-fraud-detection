@@ -1,24 +1,14 @@
 groups:
   - name: fraud-business-alerts
     rules:
-      - alert: FraudAlertDetected
-        expr: increase(fraud_alerts_total[1m]) > 0
-        for: 0m
-        labels:
-          severity: warning
-          team: fraud
-        annotations:
-          summary: "Fraud alerts detected"
-          description: "{{ $value }} fraud alerts were created in the last minute."
-
       - alert: FraudPipelineCoverageSLOViolation
         expr: |
           (
-            sum(rate(fraud_decisions_total[5m]))
+            (sum(rate(fraud_decisions_total{application="fraud-detection-service"}[5m])) or vector(0))
             /
-            clamp_min(sum(rate(transaction_events_published_total{outcome="success"}[5m])), 1)
+            clamp_min((sum(rate(transaction_events_published_total{application="transaction-service",outcome="success"}[5m])) or vector(0)), 1)
           ) < 0.95
-          and on() (sum(rate(transaction_events_published_total{outcome="success"}[5m])) > 0)
+          and on() ((sum(rate(transaction_events_published_total{application="transaction-service",outcome="success"}[5m])) or vector(0)) > 0)
         for: 10m
         labels:
           severity: critical
@@ -31,10 +21,11 @@ groups:
       - alert: FraudToAlertConversionSLOViolation
         expr: |
           (
-            sum(rate(fraud_alerts_total[10m])) by (application)
+            (sum(rate(fraud_alerts_total{application="alert-service"}[10m])) or vector(0))
             /
-            clamp_min(sum(rate(fraud_decisions_total{decision="fraud"}[10m])) by (application), 1)
+            clamp_min((sum(rate(fraud_decisions_total{application="fraud-detection-service",decision="fraud"}[10m])) or vector(0)), 1)
           ) < 0.98
+          and on() ((sum(rate(fraud_decisions_total{application="fraud-detection-service",decision="fraud"}[10m])) or vector(0)) > 0)
         for: 15m
         labels:
           severity: critical
@@ -42,14 +33,14 @@ groups:
           slo: fraud-to-alert
         annotations:
           summary: "SLO violated: fraud-to-alert conversion"
-          description: "Fraud decision to alert conversion is {{ $value | humanizePercentage }} in {{ $labels.application }} (target >= 98%)."
+          description: "Fraud decision to alert conversion is {{ $value | humanizePercentage }} (target >= 98%)."
 
       - alert: NotificationFailureRateHigh
         expr: |
           (
-            sum(rate(fraud_alert_notifications_total{outcome="failed"}[10m])) by (application)
+            sum(rate(fraud_alert_notifications_total{application="alert-service",outcome="failed"}[10m]))
             /
-            clamp_min(sum(rate(fraud_alert_notifications_total{outcome=~"success|failed"}[10m])) by (application), 1)
+            clamp_min(sum(rate(fraud_alert_notifications_total{application="alert-service",outcome=~"success|failed"}[10m])), 1)
           ) > 0.05
         for: 10m
         labels:
@@ -58,14 +49,14 @@ groups:
           slo: notification-reliability
         annotations:
           summary: "High notification failure rate"
-          description: "Failed notifications are above 5% in {{ $labels.application }}. Current value: {{ $value | humanizePercentage }}."
+          description: "Failed notifications are above 5%. Current value: {{ $value | humanizePercentage }}."
 
       - alert: FraudEvaluationLatencyHigh
         expr: |
           (
-            sum(rate(fraud_evaluation_latency_seconds_sum[10m])) by (application)
+            sum(rate(fraud_evaluation_latency_seconds_sum{application="fraud-detection-service"}[10m]))
             /
-            clamp_min(sum(rate(fraud_evaluation_latency_seconds_count[10m])) by (application), 1)
+            clamp_min(sum(rate(fraud_evaluation_latency_seconds_count{application="fraud-detection-service"}[10m])), 1)
           ) > 0.25
         for: 10m
         labels:
@@ -74,14 +65,14 @@ groups:
           slo: decision-latency
         annotations:
           summary: "High fraud evaluation latency"
-          description: "Average fraud evaluation latency is above 250ms in {{ $labels.application }}."
+          description: "Average fraud evaluation latency is above 250ms."
 
       - alert: AlertNotificationLatencyHigh
         expr: |
           (
-            sum(rate(fraud_alert_notification_latency_seconds_sum[10m])) by (application)
+            sum(rate(fraud_alert_notification_latency_seconds_sum{application="alert-service"}[10m]))
             /
-            clamp_min(sum(rate(fraud_alert_notification_latency_seconds_count[10m])) by (application), 1)
+            clamp_min(sum(rate(fraud_alert_notification_latency_seconds_count{application="alert-service"}[10m])), 1)
           ) > 1.5
         for: 10m
         labels:
@@ -90,7 +81,7 @@ groups:
           slo: notification-latency
         annotations:
           summary: "High notification latency"
-          description: "Average notification latency is above 1.5s in {{ $labels.application }}."
+          description: "Average notification latency is above 1.5s."
 
       - alert: KafkaDlqTrafficDetected
         expr: sum(increase(kafka_dlq_events_received_total[5m])) by (application) > 0
